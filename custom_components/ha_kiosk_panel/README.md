@@ -23,15 +23,17 @@ If the kiosk's IP changes later (e.g. a DHCP lease renewal), fix it via the inte
 | Ambient Light | sensor | `lux/state` |
 | Presence Distance *(disabled by default)* | sensor | `presence/distance` |
 | Presence | binary_sensor | `presence/state` or `presence` |
+| Connectivity | binary_sensor | `availability` (always shown, not gated by it) |
 | Brightness | number | `brightness/set` / `brightness/state` |
 | Screensaver Timeout | number | `screensaver_timeout/set` / `screensaver_timeout/state` |
 | Display Power | switch | `dpms/set` / `dpms/state` |
 | Screensaver Active | switch | `screensaver/set` / `screensaver/state` |
 | Reboot | button | `reboot/set` |
+| Refresh Dashboard | button | `refresh/set` (Ctrl+F5 in Chromium) |
 | Dashboard URL | text | `dashboard_url/set` / `dashboard_url/state` |
 | Screensaver URL | text | `screensaver_url/set` / `screensaver_url/state` |
 | Media Player | media_player | MPD protocol, direct TCP (not MQTT) |
 
-Availability for every entity follows `<base_topic>/availability` (`online`/`offline`, published as an MQTT LWT so a kiosk going offline is reflected immediately).
+Availability for every entity except Media Player follows `<base_topic>/availability` (`online`/`offline`, published as an MQTT LWT so a kiosk going offline is reflected immediately). Media Player checks MPD reachability directly instead, since MPD is a separate TCP service that can be up or down independently of `kiosk-config-mqtt.service` — the Connectivity sensor is the one to watch for the MQTT bridge itself.
 
 Not every kiosk has every sensor wired up (lux, presence) — those entities will simply stay `unknown` if the corresponding hardware/service isn't enabled on that kiosk.

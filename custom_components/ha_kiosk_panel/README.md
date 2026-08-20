@@ -30,6 +30,7 @@ If the kiosk's IP changes later (e.g. a DHCP lease renewal), fix it via the inte
 | Screensaver Active | switch | `screensaver/set` / `screensaver/state` |
 | Reboot | button | `reboot/set` |
 | Refresh Dashboard | button | `refresh/set` (Ctrl+F5 in Chromium) |
+| Rearm Setup Wizard | button | `rearm_wizard/set` (arms the wizard + reboots, same as `kiosk-reconfigure`) |
 | Dashboard URL | text | `dashboard_url/set` / `dashboard_url/state` |
 | Screensaver URL | text | `screensaver_url/set` / `screensaver_url/state` |
 | Media Player | media_player | MPD protocol, direct TCP (not MQTT) |

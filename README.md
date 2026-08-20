@@ -12,7 +12,8 @@ Originally built as a one-off for a kitchen wall display; this project genericiz
 - Optional MQTT bridge services: brightness control, DPMS (screen on/off), screensaver control, reboot-on-command, temperature reporting, and live (no-reboot) control of dashboard URL / screensaver URL / screensaver timeout
 - Optional sensor support: light/lux sensor, C4001 mmWave presence sensor (UART), RCWL-0516 presence sensor (GPIO) — each independently toggled in the wizard; see [HARDWARE.md](HARDWARE.md) for exact wiring/pinouts
 - **[Home Assistant Kiosk Panel](custom_components/ha_kiosk_panel/)** — a companion HACS integration that auto-discovers kiosks over MQTT and exposes all of the above as entities (sensors, switches, an MPD media player, and text/number controls for the dashboard/screensaver settings) without hand-writing any MQTT YAML
-- **Reconfigure without reflashing**: run `kiosk-reconfigure` over SSH or the local terminal to drop back into the setup wizard and change any setting
+- **Reconfigure without reflashing**: run `kiosk-reconfigure` over SSH or the local terminal, or press "Rearm Setup Wizard" in the `ha_kiosk_panel` integration, to drop back into the setup wizard and change any setting
+- **Animated boot splash** that covers the entire boot sequence (kernel/systemd console output suppressed via `cmdline.txt`) so nothing but the logo and a spinner is ever visible, correctly centered and oriented for whichever screen rotation is configured
 - Wi-Fi watchdog (auto-recovers a dropped connection) and network logging
 - Auto-expands to fill whatever size SD card it's flashed to (image ships shrunk small for a fast download)
 

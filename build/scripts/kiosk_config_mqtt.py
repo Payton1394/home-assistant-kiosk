@@ -99,6 +99,19 @@ def refresh_chromium():
     subprocess.run(["xdotool", "key", "ctrl+F5"], timeout=10, capture_output=True)
 
 
+def rearm_wizard():
+    """Same effect as running `kiosk-reconfigure` at a terminal: drop the
+    provisioned marker so kiosk.sh falls back to the local setup wizard on
+    next boot, then reboot. Deletes the marker directly (kiosk already owns
+    it, no sudo needed) and uses the reboot NOPASSWD rule that already
+    exists for the Reboot button, rather than shelling out to
+    kiosk-reconfigure.sh - that script re-execs itself via plain `sudo`
+    (no -n), which would hang waiting on a password prompt with no TTY to
+    answer it from a systemd service context."""
+    Path("/home/kiosk/.provisioned").unlink(missing_ok=True)
+    subprocess.run(["sudo", "-n", "systemctl", "reboot"], timeout=15)
+
+
 def apply_screensaver_timeout(seconds):
     """Rewrites the xscreensaver 'timeout:' line to H:MM:SS and asks the
     running xscreensaver daemon to reload it immediately - no restart of any
@@ -135,6 +148,7 @@ def main():
     availability_topic = f"{base}/availability"
     panel_topic = f"{base}/panel/state"
     refresh_topic = f"{base}/refresh/set"
+    rearm_wizard_topic = f"{base}/rearm_wizard/set"
 
     topics = {
         "dashboard_url": (f"{base}/dashboard_url/set", f"{base}/dashboard_url/state", "kiosk", "url"),
@@ -167,6 +181,7 @@ def main():
             for cmd_topic, *_rest in topics.values():
                 c.subscribe(cmd_topic, qos=1)
             c.subscribe(refresh_topic, qos=1)
+            c.subscribe(rearm_wizard_topic, qos=1)
             publish_identity()
             publish_current_state()
         except Exception:
@@ -182,6 +197,9 @@ def main():
         try:
             if msg.topic == refresh_topic:
                 refresh_chromium()
+                return
+            if msg.topic == rearm_wizard_topic:
+                rearm_wizard()
                 return
 
             payload = msg.payload.decode("utf-8", errors="ignore").strip()

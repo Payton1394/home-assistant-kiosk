@@ -14,7 +14,13 @@ from .entity import KioskEntity
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    async_add_entities([KioskRebootButton(hass, entry), KioskRefreshButton(hass, entry)])
+    async_add_entities(
+        [
+            KioskRebootButton(hass, entry),
+            KioskRefreshButton(hass, entry),
+            KioskRearmWizardButton(hass, entry),
+        ]
+    )
 
 
 class KioskRebootButton(KioskEntity, ButtonEntity):
@@ -40,3 +46,19 @@ class KioskRefreshButton(KioskEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await mqtt.async_publish(self.hass, self._topic("refresh/set"), "REFRESH")
+
+
+class KioskRearmWizardButton(KioskEntity, ButtonEntity):
+    """Drops the kiosk back into first-boot setup wizard mode and reboots -
+    the same effect as running `kiosk-reconfigure` at a terminal, without
+    needing physical/SSH access. Existing settings aren't wiped; the wizard
+    pre-fills from the current kiosk_config.ini."""
+
+    _attr_icon = "mdi:wizard-hat"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        super().__init__(hass, entry, "rearm_wizard", "Rearm Setup Wizard")
+
+    async def async_press(self) -> None:
+        await mqtt.async_publish(self.hass, self._topic("rearm_wizard/set"), "REARM")

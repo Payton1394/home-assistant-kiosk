@@ -28,7 +28,7 @@ esac
 
 FRAMES=("$FRAMES_DIR/${ROTATION}_"*.png)
 if [ -e "${FRAMES[0]}" ]; then
-  exec fbi -d /dev/fb0 --noverbose -a -t 0.1 "${FRAMES[@]}"
+  exec fbi -d /dev/fb0 --noverbose -a -t 0.2 "${FRAMES[@]}"
 fi
 
 case "$ROTATION" in

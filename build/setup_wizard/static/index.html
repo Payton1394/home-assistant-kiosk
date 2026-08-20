@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Home Assistant Kiosk Setup</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <h1>Home Assistant Kiosk</h1>
+    <p class="subtitle">First-time setup</p>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <form id="setup-form" autocomplete="off">
+
+    <section>
+      <h2>1. Device</h2>
+      <label for="device_name">Device name</label>
+      <input type="text" id="device_name" name="device_name" placeholder="e.g. Kitchen" required>
+      <p class="hint">Used for the hostname and MQTT topic (e.g. "Kitchen" &rarr; kiosk/kitchen).</p>
+    </section>
+
+    <section>
+      <h2>2. Wi-Fi</h2>
+      <label class="checkbox-row">
+        <input type="checkbox" id="skip_wifi" name="skip_wifi">
+        Already connected &mdash; keep current connection (Ethernet or existing Wi-Fi)
+      </label>
+
+      <div id="wifi-section">
+        <div class="row">
+          <button type="button" id="rescan-btn" class="btn-secondary">Rescan networks</button>
+          <span id="scan-status" class="hint"></span>
+        </div>
+        <div id="network-list" class="network-list"></div>
+
+        <label for="wifi_ssid_manual">Network name (SSID)</label>
+        <input type="text" id="wifi_ssid_manual" name="wifi_ssid_manual" placeholder="Tap a network above, or type one">
+
+        <label for="wifi_password">Wi-Fi password</label>
+        <input type="password" id="wifi_password" name="wifi_password" placeholder="Leave blank for open networks">
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Dashboard</h2>
+      <label for="dashboard_url">Home Assistant dashboard URL</label>
+      <input type="url" id="dashboard_url" name="dashboard_url" placeholder="https://ha.example.com/dashboard-kiosk/kitchen" required>
+      <p class="hint">The full URL this screen should show fullscreen.</p>
+    </section>
+
+    <section>
+      <h2>4. Screen orientation</h2>
+      <label for="rotation">How is this screen mounted?</label>
+      <select id="rotation" name="rotation">
+        <option value="normal">Landscape</option>
+        <option value="right">Portrait (rotated right)</option>
+        <option value="left">Portrait (rotated left)</option>
+        <option value="inverted">Landscape (upside-down)</option>
+      </select>
+      <p class="hint">If the touchscreen doesn't line up with the display after saving, try the other portrait option.</p>
+    </section>
+
+    <section>
+      <h2>5. Screensaver <span class="optional">(optional)</span></h2>
+      <label for="screensaver_url">Screensaver URL</label>
+      <input type="url" id="screensaver_url" name="screensaver_url" placeholder="Leave blank to disable">
+    </section>
+
+    <details class="adv">
+      <summary>6. MQTT &amp; smart features <span class="optional">(optional &mdash; leave broker blank to skip)</span></summary>
+      <div class="adv-body">
+        <p class="hint">Enables brightness/screensaver/reboot control and sensor reporting over MQTT (e.g. from Home Assistant). Leave the broker field blank to run as a plain browser kiosk.</p>
+        <label for="mqtt_host">MQTT broker host</label>
+        <input type="text" id="mqtt_host" name="mqtt_host" placeholder="e.g. 192.168.1.10">
+        <label for="mqtt_port">MQTT port</label>
+        <input type="number" id="mqtt_port" name="mqtt_port" value="1883">
+        <label for="mqtt_username">MQTT username</label>
+        <input type="text" id="mqtt_username" name="mqtt_username">
+        <label for="mqtt_password">MQTT password</label>
+        <input type="password" id="mqtt_password" name="mqtt_password">
+
+        <p class="hint" style="margin-top:16px;">Optional sensors &mdash; only turn on the ones actually wired to this Pi. Each publishes to MQTT and can be flipped off any time by reopening this wizard (run <code>kiosk-reconfigure</code>).</p>
+        <label class="checkbox-row">
+          <input type="checkbox" id="sensor_lux" name="sensor_lux">
+          I have a light/lux sensor
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="sensor_c4001" name="sensor_c4001">
+          I have a C4001 mmWave presence sensor (UART)
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="sensor_rcwl" name="sensor_rcwl">
+          I have an RCWL-0516 presence sensor (GPIO)
+        </label>
+      </div>
+    </details>
+
+    <details class="adv" open>
+      <summary>7. Remote access</summary>
+      <div class="adv-body">
+        <p class="hint hint-warn">This image ships with a known default terminal/SSH password (<code>ChangeMe-Kiosk1!</code> for user <code>kiosk</code>) so it's reachable out of the box. Set your own below &mdash; recommended before this device touches any network you care about.</p>
+
+        <label for="terminal_password">New terminal / SSH password <span class="optional">(optional, but recommended)</span></label>
+        <input type="password" id="terminal_password" name="terminal_password" placeholder="Leave blank to keep the default">
+        <label for="terminal_password_confirm">Confirm password</label>
+        <input type="password" id="terminal_password_confirm" name="terminal_password_confirm">
+
+        <label for="ssh_pubkey">SSH public key <span class="optional">(optional)</span></label>
+        <textarea id="ssh_pubkey" name="ssh_pubkey" rows="3" placeholder="ssh-ed25519 AAAA... you@yourcomputer"></textarea>
+        <p class="hint">Paste a public key (e.g. the contents of ~/.ssh/id_ed25519.pub) to enable passwordless SSH into this kiosk. Leave blank to skip &mdash; you can always add one later by running <code>kiosk-reconfigure</code> again.</p>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>8. Advanced <span class="optional">(optional)</span></summary>
+      <div class="adv-body">
+        <label for="touch_device">Touch input device (id or name)</label>
+        <input type="text" id="touch_device" name="touch_device" placeholder="Leave blank if unsure">
+
+        <div class="grid2">
+          <div>
+            <label for="brightness_min">Brightness min</label>
+            <input type="number" id="brightness_min" name="brightness_min" value="10">
+          </div>
+          <div>
+            <label for="brightness_max">Brightness max</label>
+            <input type="number" id="brightness_max" name="brightness_max" value="100">
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <label for="screensaver_timeout">Screensaver after (sec)</label>
+            <input type="number" id="screensaver_timeout" name="screensaver_timeout" value="300">
+          </div>
+          <div>
+            <label for="dpms_timeout">Screen off after (sec)</label>
+            <input type="number" id="dpms_timeout" name="dpms_timeout" value="600">
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <button type="submit" id="save-btn" class="btn-primary">Save &amp; Reboot</button>
+  </form>
+
+  <div id="working-overlay" class="overlay hidden">
+    <div class="spinner"></div>
+    <p id="working-text">Setting up your kiosk&hellip;</p>
+  </div>
+</div>
+
+<div id="keyboard" class="keyboard hidden"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

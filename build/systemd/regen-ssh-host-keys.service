@@ -1,0 +1,13 @@
+[Unit]
+Description=Regenerate SSH host keys if missing (first boot after cloning this image)
+DefaultDependencies=no
+Before=ssh.service sysinit.target
+ConditionPathExists=!/etc/ssh/ssh_host_rsa_key
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ssh-keygen -A
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

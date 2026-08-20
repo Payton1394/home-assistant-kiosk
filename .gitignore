@@ -1,0 +1,15 @@
+# Built SD card images - too large for git, distributed via GitHub Releases instead
+*.img
+*.img.xz
+*.img.gz
+
+# Python
+__pycache__/
+*.pyc
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Local Claude Code project settings
+.claude/

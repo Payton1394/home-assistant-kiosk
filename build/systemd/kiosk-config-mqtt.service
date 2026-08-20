@@ -1,0 +1,16 @@
+[Unit]
+Description=Kiosk Config MQTT Bridge (dashboard/screensaver URL, screensaver timeout, HA discovery)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=kiosk
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/kiosk/.Xauthority
+WorkingDirectory=/home/kiosk
+ExecStart=/home/kiosk/kiosk_config_mqtt.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

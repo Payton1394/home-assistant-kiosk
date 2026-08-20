@@ -1,0 +1,16 @@
+[Unit]
+Description=Home Assistant Kiosk first-boot setup wizard (local HTTP server)
+After=network.target
+Before=kiosk.service
+ConditionPathExists=!/home/kiosk/.provisioned
+
+[Service]
+Type=simple
+User=kiosk
+WorkingDirectory=/home/kiosk/setup_wizard
+ExecStart=/usr/bin/python3 /home/kiosk/setup_wizard/server.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

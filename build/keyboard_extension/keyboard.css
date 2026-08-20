@@ -1,0 +1,60 @@
+#hak-keyboard {
+  all: initial;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2147483647;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  transition: transform 0.18s ease;
+  box-sizing: border-box;
+}
+#hak-keyboard.hak-hidden {
+  transform: translateY(110%);
+  pointer-events: none;
+}
+#hak-keyboard * {
+  box-sizing: border-box;
+}
+#hak-keyboard .hak-surface {
+  background: #131a2c;
+  border-top: 1px solid #2a3350;
+  border-radius: 16px 16px 0 0;
+  padding: 14px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4);
+}
+#hak-keyboard .hak-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  justify-content: center;
+}
+#hak-keyboard .hak-key {
+  flex: 1;
+  min-width: 0;
+  min-height: clamp(52px, 9vh, 76px);
+  background: #232d47;
+  color: #e8ecf6;
+  border: none;
+  border-radius: 10px;
+  padding: 0;
+  font-size: clamp(20px, 3.2vh, 28px);
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+#hak-keyboard .hak-key:active {
+  background: #34406a;
+}
+#hak-keyboard .hak-key.hak-wide {
+  flex: 1.8;
+}
+#hak-keyboard .hak-key.hak-space {
+  flex: 6;
+}
+#hak-keyboard .hak-key.hak-accent {
+  background: #4f8cff;
+  color: #06101f;
+  font-weight: 600;
+}

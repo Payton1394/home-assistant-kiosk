@@ -1,0 +1,14 @@
+[Unit]
+Description=Expand root filesystem to fill SD card (first boot only)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+ConditionPathExists=!/etc/.rootfs-expanded
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/expand-rootfs.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

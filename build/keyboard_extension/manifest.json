@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Home Assistant Kiosk On-Screen Keyboard",
+  "version": "1.0",
+  "description": "Shows a touch keyboard whenever a text field is focused, on any page.",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": ["http://127.0.0.1/*", "http://localhost/*"],
+      "js": ["keyboard.js"],
+      "css": ["keyboard.css"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ]
+}

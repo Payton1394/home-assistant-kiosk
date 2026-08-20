@@ -1,0 +1,41 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Kiosk Panel",
+        "description": "Add a kiosk manually. If your kiosk is already online and configured with an MQTT broker, it should be discovered automatically instead.",
+        "data": {
+          "name": "Name",
+          "base_topic": "MQTT base topic",
+          "host": "Kiosk IP address (for MPD)",
+          "mpd_port": "MPD port"
+        }
+      },
+      "discovery_confirm": {
+        "title": "Kiosk Panel discovered",
+        "description": "A kiosk panel named \"{name}\" was found on MQTT. Add it?",
+        "data": {
+          "name": "Name",
+          "host": "Kiosk IP address (for MPD)",
+          "mpd_port": "MPD port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This kiosk is already configured.",
+      "invalid_discovery_info": "Could not parse the kiosk's MQTT discovery message."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kiosk Panel options",
+        "description": "Update the kiosk's IP address if it has changed (e.g. after a DHCP lease renewal).",
+        "data": {
+          "host": "Kiosk IP address (for MPD)",
+          "mpd_port": "MPD port"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+[mqtt]
+host =
+port = 1883
+username =
+password =
+base_topic = kiosk/kitchen
+
+[kiosk]
+url =
+panel_name = kiosk
+brightness_min = 10
+brightness_max = 100
+
+[screensaver]
+timeout_seconds = 300
+dpms_off_seconds = 600
+command_topic = screensaver/set
+state_topic = screensaver/state
+enabled = false
+url =
+
+[dpms]
+command_topic = dpms/set
+state_topic   = dpms/state
+
+[brightness]
+command_topic = brightness/set
+state_topic   = brightness/state
+min           = 0
+max           = 100
+display       = 1
+
+[reboot]
+command_topic = reboot/set
+
+# kiosk-config-mqtt.service (dashboard URL / screensaver URL / screensaver
+# timeout, plus HA auto-discovery) uses fixed topics under base_topic rather
+# than ini-configurable ones, since there's no legacy naming to preserve:
+#   <base_topic>/dashboard_url/set|state
+#   <base_topic>/screensaver_url/set|state
+#   <base_topic>/screensaver_timeout/set|state
+#   <base_topic>/panel/state      (retained identity JSON, HA discovery)
+#   <base_topic>/availability     (LWT: online/offline)
+
+[c4001]
+uart_device = /dev/ttyAMA1
+baud = 9600
+hold_seconds = 20
+topic = presence/state
+distance_topic = presence/distance
+
+[display]
+rotation = normal
+touch_device =
+####rotation = normal   ; landscape, no rotation
+####rotation = right    ; 90 degrees clockwise (portrait)
+####rotation = left     ; 90 degrees counter-clockwise (portrait)
+####rotation = inverted ; 180 degrees (upside-down landscape)

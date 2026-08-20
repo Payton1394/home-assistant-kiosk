@@ -1,0 +1,13 @@
+{
+  "domain": "ha_kiosk_panel",
+  "name": "Home Assistant Kiosk Panel",
+  "codeowners": ["@Payton1394"],
+  "config_flow": true,
+  "dependencies": ["mqtt"],
+  "documentation": "https://github.com/Payton1394/home-assistant-kiosk",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Payton1394/home-assistant-kiosk/issues",
+  "mqtt": ["kiosk/+/panel/state"],
+  "requirements": ["python-mpd2==3.1.1"],
+  "version": "0.1.0"
+}

@@ -19,4 +19,4 @@ kiosk ALL=(root) NOPASSWD: /usr/local/sbin/set-boot-rotation.py
 # one privileged action to apply a dashboard-URL change live, without a
 # reboot - restarting the chromium kiosk service picks up the new URL from
 # kiosk_config.ini on its next launch.
-kiosk ALL=(root) NOPASSWD: /usr/bin/systemctl restart kiosk.service
+kiosk ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block restart kiosk.service

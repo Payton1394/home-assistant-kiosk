@@ -15,6 +15,7 @@ import json
 import socket
 import subprocess
 import time
+import traceback
 from pathlib import Path
 
 import paho.mqtt.client as mqtt
@@ -79,7 +80,23 @@ def set_ini(section, key, value):
 
 
 def restart_kiosk_service():
-    subprocess.run(["sudo", "-n", "systemctl", "restart", "kiosk.service"], timeout=15)
+    # --no-block: return as soon as the restart job is queued rather than
+    # waiting for the full stop+start cycle (X/Chromium teardown can take
+    # longer than any reasonable subprocess timeout) - waiting here isn't
+    # needed anyway, since nothing downstream depends on completion.
+    subprocess.run(
+        ["sudo", "-n", "systemctl", "--no-block", "restart", "kiosk.service"],
+        timeout=15,
+    )
+
+
+def refresh_chromium():
+    """Hard-reload the active Chromium window (Ctrl+F5) rather than
+    restarting the kiosk service - keeps scroll position/session state and
+    is much faster than a full relaunch. Same mechanism the existing
+    per-kiosk shell_command/refresh.sh automations use, just triggered over
+    MQTT instead of HA SSHing into the device."""
+    subprocess.run(["xdotool", "key", "ctrl+F5"], timeout=10, capture_output=True)
 
 
 def apply_screensaver_timeout(seconds):
@@ -117,6 +134,7 @@ def main():
 
     availability_topic = f"{base}/availability"
     panel_topic = f"{base}/panel/state"
+    refresh_topic = f"{base}/refresh/set"
 
     topics = {
         "dashboard_url": (f"{base}/dashboard_url/set", f"{base}/dashboard_url/state", "kiosk", "url"),
@@ -145,28 +163,48 @@ def main():
         client.publish(availability_topic, "online", qos=1, retain=True)
 
     def on_connect(c, userdata, flags, rc):
-        for cmd_topic, *_rest in topics.values():
-            c.subscribe(cmd_topic, qos=1)
-        publish_identity()
-        publish_current_state()
+        try:
+            for cmd_topic, *_rest in topics.values():
+                c.subscribe(cmd_topic, qos=1)
+            c.subscribe(refresh_topic, qos=1)
+            publish_identity()
+            publish_current_state()
+        except Exception:
+            # An exception here runs inside paho-mqtt's own thread, outside
+            # this script's control flow - letting one escape can silently
+            # kill that thread while systemd still sees the process as
+            # "running" (main thread is just sleeping), leaving the bridge
+            # looking alive but never actually reconnecting or heartbeating
+            # again. Always log and continue instead.
+            traceback.print_exc()
 
     def on_message(c, userdata, msg):
-        payload = msg.payload.decode("utf-8", errors="ignore").strip()
-        for cmd_topic, state_topic, section, key in topics.values():
-            if msg.topic != cmd_topic:
-                continue
-            if key == "timeout_seconds":
-                set_ini(section, key, payload)
-                apply_screensaver_timeout(payload)
-            elif key == "url" and section == "kiosk":
-                set_ini(section, key, payload)
-                restart_kiosk_service()
-            else:
-                # screensaver url: webscreensaver-wrapper.sh re-reads the ini
-                # on every screensaver activation, so no restart is needed.
-                set_ini(section, key, payload)
-            c.publish(state_topic, get_ini(section, key), qos=1, retain=True)
-            break
+        try:
+            if msg.topic == refresh_topic:
+                refresh_chromium()
+                return
+
+            payload = msg.payload.decode("utf-8", errors="ignore").strip()
+            for cmd_topic, state_topic, section, key in topics.values():
+                if msg.topic != cmd_topic:
+                    continue
+                if key == "timeout_seconds":
+                    set_ini(section, key, payload)
+                    apply_screensaver_timeout(payload)
+                elif key == "url" and section == "kiosk":
+                    set_ini(section, key, payload)
+                    restart_kiosk_service()
+                else:
+                    # screensaver url: webscreensaver-wrapper.sh re-reads the
+                    # ini on every activation, so no restart is needed.
+                    set_ini(section, key, payload)
+                c.publish(state_topic, get_ini(section, key), qos=1, retain=True)
+                break
+        except Exception:
+            # See on_connect's comment - never let a single bad command
+            # (e.g. a slow/failing subprocess call) take down the whole
+            # bridge's MQTT connectivity.
+            traceback.print_exc()
 
     client.on_connect = on_connect
     client.on_message = on_message

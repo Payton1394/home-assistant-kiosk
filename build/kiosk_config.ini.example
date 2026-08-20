@@ -41,6 +41,7 @@ command_topic = reboot/set
 #   <base_topic>/screensaver_timeout/set|state
 #   <base_topic>/panel/state      (retained identity JSON, HA discovery)
 #   <base_topic>/availability     (LWT: online/offline)
+#   <base_topic>/refresh/set      (write-only: any payload triggers a Ctrl+F5 in Chromium)
 
 [c4001]
 uart_device = /dev/ttyAMA1

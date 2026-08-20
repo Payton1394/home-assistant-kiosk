@@ -173,7 +173,17 @@ def main():
             "mpd_port": MPD_PORT,
             "sw_version": SW_VERSION,
         })
-        client.publish(panel_topic, payload, qos=1, retain=True)
+        # panel/state is deliberately NOT retained: it's a live "I'm here right
+        # now" discovery signal, re-sent periodically below. If it were
+        # retained, a kiosk that's been offline for months would still hand a
+        # brand-new HA instance a stale "new kiosk discovered" prompt forever,
+        # since retained messages get delivered to any fresh subscriber
+        # regardless of whether the publisher is still around. Availability
+        # (online/offline) is the correct, and only, thing that should persist.
+        # The empty retained publish below clears any leftover retained
+        # message from older script versions that did retain this topic.
+        client.publish(panel_topic, payload="", qos=1, retain=True)
+        client.publish(panel_topic, payload, qos=1, retain=False)
         client.publish(availability_topic, "online", qos=1, retain=True)
 
     def on_connect(c, userdata, flags, rc):
@@ -228,12 +238,15 @@ def main():
     client.on_message = on_message
     client.connect(cfg["host"], cfg["port"], keepalive=60)
 
-    # Re-announce identity periodically so the integration's discovery/
-    # availability stays fresh even if a retained message ever gets lost.
+    # Re-announce identity periodically - this is now the ONLY way HA's
+    # discovery flow ever sees this kiosk (panel/state isn't retained), so
+    # the interval doubles as "how stale can a not-yet-added kiosk's
+    # discoverability be" for a fresh HA/MQTT restart. 60s keeps that snappy
+    # without being a meaningful load on the broker.
     client.loop_start()
     try:
         while True:
-            time.sleep(300)
+            time.sleep(60)
             publish_identity()
     except KeyboardInterrupt:
         pass

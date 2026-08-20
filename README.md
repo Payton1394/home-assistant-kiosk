@@ -10,7 +10,7 @@ Originally built as a one-off for a kitchen wall display; this project genericiz
 - First-boot **setup wizard** (runs on the kiosk's own screen) for device name, Wi-Fi, dashboard URL, screen orientation, MQTT broker, screensaver, and sensors
 - **On-screen keyboard** in the setup wizard (a dashboard-wide version was tried via a Chromium extension but caused a touchscreen-input regression in testing and has been reverted — see Known issues)
 - Optional MQTT bridge services: brightness control, DPMS (screen on/off), screensaver control, reboot-on-command, temperature reporting, and live (no-reboot) control of dashboard URL / screensaver URL / screensaver timeout
-- Optional sensor support: light/lux sensor, C4001 mmWave presence sensor (UART), RCWL-0516 presence sensor (GPIO) — each independently toggled in the wizard
+- Optional sensor support: light/lux sensor, C4001 mmWave presence sensor (UART), RCWL-0516 presence sensor (GPIO) — each independently toggled in the wizard; see [HARDWARE.md](HARDWARE.md) for exact wiring/pinouts
 - **[Home Assistant Kiosk Panel](custom_components/ha_kiosk_panel/)** — a companion HACS integration that auto-discovers kiosks over MQTT and exposes all of the above as entities (sensors, switches, an MPD media player, and text/number controls for the dashboard/screensaver settings) without hand-writing any MQTT YAML
 - **Reconfigure without reflashing**: run `kiosk-reconfigure` over SSH or the local terminal to drop back into the setup wizard and change any setting
 - Wi-Fi watchdog (auto-recovers a dropped connection) and network logging
@@ -24,7 +24,7 @@ Originally built as a one-off for a kitchen wall display; this project genericiz
    - **Device name** (e.g. "Kitchen")
    - **Wi-Fi** (scans nearby networks; skip if using Ethernet or already connected)
    - **Dashboard URL** (your Home Assistant dashboard)
-   - Optional: screensaver URL, MQTT broker + credentials, sensors you have wired up, an SSH public key for remote access
+   - Optional: screensaver URL, MQTT broker + credentials, sensors you have wired up (see [HARDWARE.md](HARDWARE.md) for wiring before enabling these), an SSH public key for remote access
 4. Save — the Pi reboots into your dashboard.
 
 To change settings later, SSH in (if you added a key in step 3) or use a local terminal and run:
@@ -62,6 +62,7 @@ build/
 custom_components/
   ha_kiosk_panel/          - companion HACS integration (see above)
 ANALYSIS.md                - full teardown of the original prototype image
+HARDWARE.md                 - optional sensor wiring/pinouts (lux, C4001, RCWL-0516)
 README.md                  - this file
 ```
 

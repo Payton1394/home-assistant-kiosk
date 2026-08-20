@@ -1,12 +1,17 @@
 #!/bin/bash
-# Shows the boot splash - an animated (spinner) sequence generated at build
-# time if present, matching the configured display rotation, falling back
-# to a static per-rotation image and finally the generic un-rotated source
-# if the animated frames weren't generated. fbi loops a multi-file slideshow
-# indefinitely by default, so this blocks (as desired) until kiosk.service's
-# TTYVHangup kills it when Chromium takes over the same VT.
+# Plays the boot splash - a pre-rotated, pre-composed animated GIF (see
+# build/scripts/generate_splash.py) picked by configured display rotation,
+# scaled to fit the screen's actual negotiated resolution without stretching
+# (letterboxed/pillarboxed with the same brand-blue background so the
+# padding is invisible). Runs via ffmpeg's fbdev output rather than fbi:
+# fbi's own multi-file slideshow/timer handling proved unreliable for this
+# (see project history), while ffmpeg's -re real-time-paced read combined
+# with the GIF's own per-frame durations is straightforward and reliable.
+#
+# Blocks indefinitely (loops forever) until kiosk.service's TTYVHangup kills
+# it when Chromium takes over the same VT - same lifecycle as the old
+# fbi-based launcher.
 CONFIG_FILE="/home/kiosk/kiosk_config.ini"
-FRAMES_DIR="/home/kiosk/splash_frames"
 ROTATION="normal"
 
 if [ -f "$CONFIG_FILE" ]; then
@@ -26,17 +31,17 @@ case "$ROTATION" in
   *) ROTATION="normal" ;;
 esac
 
-FRAMES=("$FRAMES_DIR/${ROTATION}_"*.png)
-if [ -e "${FRAMES[0]}" ]; then
-  exec fbi -d /dev/fb0 --noverbose -a -t 0.2 "${FRAMES[@]}"
+GIF="/home/kiosk/HA_Splash_${ROTATION}.gif"
+[ -f "$GIF" ] || GIF="/home/kiosk/HA_Splash.png"
+
+RES="$(cat /sys/class/graphics/fb0/virtual_size 2>/dev/null)"
+W="${RES%,*}"
+H="${RES#*,}"
+if [ -z "$W" ] || [ -z "$H" ]; then
+  W=1920
+  H=1080
 fi
 
-case "$ROTATION" in
-  right)    IMG=/home/kiosk/HA_Splash_right.png ;;
-  left)     IMG=/home/kiosk/HA_Splash_left.png ;;
-  inverted) IMG=/home/kiosk/HA_Splash_inverted.png ;;
-  *)        IMG=/home/kiosk/HA_Splash_normal.png ;;
-esac
-[ -f "$IMG" ] || IMG=/home/kiosk/HA_Splash.png
-
-exec fbi -d /dev/fb0 --noverbose -a "$IMG"
+exec ffmpeg -loglevel error -re -stream_loop -1 -i "$GIF" \
+  -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0x18BCF2" \
+  -pix_fmt rgb565le -f fbdev /dev/fb0

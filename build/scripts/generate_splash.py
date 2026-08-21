@@ -3,16 +3,19 @@
 
 Takes the static icon+wordmark logo and an animated spinner GIF (which -
 as shipped by whatever generated it - has the spinner sitting inside a much
-larger canvas alongside a redundant copy of the icon/wordmark) and
-recomposes just the spinner ring, grouped tightly under the real logo, on a
-canvas sized correctly for each of the four display rotations.
+larger canvas alongside a redundant copy of the icon/wordmark) and crops
+out just the spinner ring, since the source's own icon+wordmark+spinner
+layout is too spread out to rotate cleanly.
 
-This crop-then-recompose approach matters because a fixed lockup (icon
-above wordmark above spinner, spread across a tall area) rotated wholesale
-for portrait just relocates that spread along a different axis - the icon
-ends up far from the spinner instead of both being centered. Cropping each
-element down to only its own content and recentering the group after
-rotation avoids that regardless of how the source asset is laid out.
+The logo and the cropped spinner are then composed into a single group
+image - spinner directly under the logo, sized relative to it - ONCE per
+animation frame, at natural (unrotated) scale. Each of the four rotations
+takes that whole group and rotates it as one rigid unit before placing it
+on the target canvas, rather than rotating the logo and spinner
+independently and re-stacking them afterward - that kept them "stacked" in
+name but let them drift apart under independent scale rounding; rotating
+the pre-composed group guarantees the spinner stays fixed directly under
+the logo in every orientation.
 """
 import sys
 from pathlib import Path
@@ -88,6 +91,33 @@ def main():
 
     bg = (24, 188, 241, 255)  # Home Assistant brand blue - matches the logo asset's own background
 
+    # Build the logo+spinner group ONCE per animation frame, at its natural
+    # (unrotated) orientation - spinner sized relative to the logo's own
+    # width, not the target canvas, so the relationship between them is
+    # fixed regardless of which rotation it later gets baked into. Each
+    # rotation then rotates this WHOLE group as one rigid unit and drops it
+    # onto the target canvas, rather than rotating the logo and spinner
+    # independently and re-stacking them afterward (which technically also
+    # keeps them "stacked" but let the two elements drift apart under scale
+    # rounding - keeping the group as one image guarantees the spinner stays
+    # directly under the logo no matter the rotation).
+    spinner_target_w = int(logo_src.width * 0.12)
+    gap = int(logo_src.height * 0.35)
+
+    group_frames = []
+    for spinner_src in spinner_frames:
+        sp_scale = spinner_target_w / spinner_src.width
+        spinner = spinner_src.resize(
+            (max(1, spinner_target_w), max(1, int(spinner_src.height * sp_scale))),
+            Image.LANCZOS,
+        )
+        group_w = max(logo_src.width, spinner.width)
+        group_h = logo_src.height + gap + spinner.height
+        group = Image.new("RGBA", (group_w, group_h), (0, 0, 0, 0))
+        group.alpha_composite(logo_src, dest=((group_w - logo_src.width) // 2, 0))
+        group.alpha_composite(spinner, dest=((group_w - spinner.width) // 2, logo_src.height + gap))
+        group_frames.append(group)
+
     canvases = {
         "normal": (canvas_w, canvas_h),
         "inverted": (canvas_w, canvas_h),
@@ -98,32 +128,19 @@ def main():
     for rot, (w, h) in canvases.items():
         angle = ROTATE_ANGLE[rot]
 
-        logo = logo_src.rotate(angle, expand=True)
-        logo_scale = min((w * 0.5) / logo.width, (h * 0.35) / logo.height, 1.0)
-        if logo_scale < 1.0:
-            logo = logo.resize(
-                (max(1, int(logo.width * logo_scale)), max(1, int(logo.height * logo_scale))),
-                Image.LANCZOS,
-            )
-
         out_frames = []
-        for src_frame in spinner_frames:
-            spinner = src_frame.rotate(angle, expand=True)
-            sp_scale = min((w * 0.12) / spinner.width, (h * 0.1) / spinner.height, 2.0)
-            spinner = spinner.resize(
-                (max(1, int(spinner.width * sp_scale)), max(1, int(spinner.height * sp_scale))),
-                Image.LANCZOS,
-            )
-
-            gap = 30
-            group_h = logo.height + gap + spinner.height
-            group_top = (h - group_h) // 2
-            logo_pos = ((w - logo.width) // 2, group_top)
-            spin_pos = ((w - spinner.width) // 2, group_top + logo.height + gap)
+        for group in group_frames:
+            rotated = group.rotate(angle, expand=True)
+            scale = min((w * 0.7) / rotated.width, (h * 0.7) / rotated.height, 1.0)
+            if scale < 1.0:
+                rotated = rotated.resize(
+                    (max(1, int(rotated.width * scale)), max(1, int(rotated.height * scale))),
+                    Image.LANCZOS,
+                )
 
             frame = Image.new("RGBA", (w, h), bg)
-            frame.alpha_composite(logo, dest=logo_pos)
-            frame.alpha_composite(spinner, dest=spin_pos)
+            pos = ((w - rotated.width) // 2, (h - rotated.height) // 2)
+            frame.alpha_composite(rotated, dest=pos)
             out_frames.append(frame.convert("RGB"))
 
         out_path = out_dir / f"HA_Splash_{rot}.gif"

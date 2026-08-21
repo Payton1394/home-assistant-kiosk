@@ -92,3 +92,19 @@ README.md                  - this file
 - [x] Same-day follow-up — with the physical connection resolved, found and fixed a second real bug: rotating the display in the wizard didn't rotate touch input (blank `touch_device` silently skipped the coordinate-transform matrix) — now auto-detects the touch device via `xinput`. Also added: console/TTY rotation (`fbcon=rotate:N` set dynamically in `cmdline.txt`) and boot-splash rotation (4 pre-rotated image variants picked at boot) so every layer — touch, console, splash, and the dashboard — rotates together.
 - [ ] **Another real-hardware test pass** to confirm touch alignment, console/splash rotation, and the dashboard keyboard all work together
 - [ ] Packaging for GitHub release
+
+## Future ideas
+
+### Remote/OTA updates for already-deployed kiosks
+
+Not implemented. Notes for whoever picks this up:
+
+**Why it's not just "flash over SSH"**: a kiosk is booted from and actively running on the same SD card you'd be updating - `dd`-ing a new image onto that disk out from under the live, mounted root filesystem corrupts it. Real OTA needs one of:
+
+- **A/B partition scheme** (Chrome OS/many embedded systems' approach): two root partitions, the update writes to the currently-inactive one, a bootloader flag flips to it on next boot, with rollback if the new one fails to boot. Most robust, but a genuine re-architecture — partition layout, boot flow, updater tooling — not a small addition.
+- **In-place file-sync updates**: most of what actually changes release-to-release in this project is application-layer (wizard, MQTT bridge scripts, splash assets, systemd units) rather than the base OS/kernel. A lighter mechanism - a new MQTT command topic (`<base>/update/set`, matching the existing `reboot`/`refresh`/`rearm_wizard` pattern already in `kiosk_config_mqtt.py`) that pulls a versioned bundle from a GitHub release and applies it - would cover the common case without needing full A/B partitioning. Doesn't help if a future change needs a different base OS/kernel/partition layout.
+- **Hybrid**: file-sync for routine updates, full reflash (physical) reserved for changes that touch the base OS itself.
+
+Either approach needs: a way to know what version a kiosk is running (`kiosk_config_mqtt.py`'s existing `SW_VERSION` constant, already published in its identity payload, is the natural anchor), integrity/signature verification if pulling from anywhere over the network, and a rollback/backup story if an update leaves a kiosk half-updated. Also worth accounting for: kiosks drift from the shipped baseline over time (wizard-entered config, any live SSH patching like this session did on the test kiosk) - an updater needs to touch only its own known-managed files, not stomp on that.
+
+This session's four production kiosks (kitchen, Lulu's room, playroom, family room) predate this whole generic-image project and are running a meaningfully different, older setup - not something either update path above could safely reach today regardless. They'd need the manual reflash-in-hand treatment until/unless brought onto a shared baseline first.

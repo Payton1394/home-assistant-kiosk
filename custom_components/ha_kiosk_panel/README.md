@@ -2,6 +2,8 @@
 
 # Home Assistant Kiosk Panel
 
+The icon above also shows inside Home Assistant itself (device pages, the integrations list) — as of HA 2026.3+, custom integrations can ship their own brand images directly (`brand/icon.png` + `brand/icon@2x.png` in this folder), no submission to the separate `home-assistant/brands` repository needed.
+
 A HACS integration for [Home Assistant Kiosk](../../README.md) devices. Turns each kiosk's MQTT topics into real entities — no manual MQTT sensor/switch YAML required.
 
 ## Requirements

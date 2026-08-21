@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/Payton1394/home-assistant-kiosk/issues",
   "mqtt": ["kiosk/+/panel/state"],
   "requirements": ["python-mpd2==3.1.1"],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

@@ -22,6 +22,7 @@ If the kiosk's IP changes later (e.g. a DHCP lease renewal), fix it via the inte
 | CPU Temperature | sensor | `cpu_temp` |
 | Ambient Light | sensor | `lux/state` |
 | Presence Distance *(disabled by default)* | sensor | `presence/distance` |
+| Software Version | sensor | `panel/state` (`sw_version` field; not retained, updates within ~60s) |
 | Presence | binary_sensor | `presence/state` or `presence` |
 | Connectivity | binary_sensor | `availability` (always shown, not gated by it) |
 | Brightness | number | `brightness/set` / `brightness/state` |

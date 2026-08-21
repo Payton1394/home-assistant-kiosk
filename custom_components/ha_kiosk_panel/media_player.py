@@ -11,11 +11,13 @@ import logging
 
 from mpd.asyncio import MPDClient
 
+from homeassistant.components import media_source
 from homeassistant.components.media_player import (
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
     RepeatMode,
+    async_process_play_media_url,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -30,6 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORT_MPD = (
     MediaPlayerEntityFeature.PAUSE
     | MediaPlayerEntityFeature.PLAY
+    | MediaPlayerEntityFeature.PLAY_MEDIA
     | MediaPlayerEntityFeature.STOP
     | MediaPlayerEntityFeature.NEXT_TRACK
     | MediaPlayerEntityFeature.PREVIOUS_TRACK
@@ -144,6 +147,23 @@ class KioskMpdMediaPlayer(KioskEntity, MediaPlayerEntity):
 
     async def async_media_seek(self, position: float) -> None:
         await self._command("seekcur", position)
+
+    async def async_play_media(self, media_type: str, media_id: str, **kwargs) -> None:
+        """Play a URL or a Home Assistant media-source item.
+
+        MPD is a separate service on the kiosk's own network address, so a
+        media-source item (e.g. a local file browsed from HA) has to be
+        resolved to a fully-qualified URL MPD can fetch itself - MPD never
+        sees the original media-source URI.
+        """
+        if media_source.is_media_source_id(media_id):
+            play_item = await media_source.async_resolve_media(self.hass, media_id, self.entity_id)
+            media_id = play_item.url
+        media_id = async_process_play_media_url(self.hass, media_id)
+
+        await self._command("clear")
+        await self._command("add", media_id)
+        await self._command("play")
 
     async def async_set_volume_level(self, volume: float) -> None:
         await self._command("setvol", int(volume * 100))

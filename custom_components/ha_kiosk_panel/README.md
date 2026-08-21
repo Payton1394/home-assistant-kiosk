@@ -10,7 +10,7 @@ A HACS integration for [Home Assistant Kiosk](../../README.md) devices. Turns ea
 
 ## Adding a kiosk
 
-- **Automatic**: once a kiosk is online with a broker configured, Home Assistant will show a "Kiosk Panel discovered" notification. Confirm it, optionally correcting the IP address.
+- **Automatic**: once a kiosk is online with a broker configured, Home Assistant will show a "Kiosk Panel discovered" notification within about a minute (the kiosk announces itself live every 60s rather than via a retained message, so a kiosk that's actually offline never leaves a stale "ghost" discovery behind). Confirm it, optionally correcting the IP address.
 - **Manual**: *Settings → Devices & Services → Add Integration → Home Assistant Kiosk Panel*. You'll need the kiosk's MQTT base topic (shown in its setup wizard, e.g. `kiosk/kitchen`) and its IP address.
 
 If the kiosk's IP changes later (e.g. a DHCP lease renewal), fix it via the integration's *Configure* option rather than re-adding it.

@@ -1,8 +1,10 @@
+<p align="center"><img src="docs/images/logo.png" alt="Home Assistant Kiosk logo" width="180"></p>
+
 # Home Assistant Kiosk
 
 A deployable Raspberry Pi image for a touchscreen Home Assistant dashboard kiosk. Flash it, boot it, walk through a first-boot setup wizard **on the screen itself** — no SSH, no keyboard/mouse (beyond the touchscreen) required — and it's running your dashboard. An optional companion [Home Assistant integration](#home-assistant-integration-hacs) turns every kiosk into real HA entities instead of hand-written MQTT YAML.
 
-Originally built as a one-off for a kitchen wall display; this project genericizes that build into something anyone can flash and configure for their own home.
+<p align="center"><img src="docs/images/dashboard-wall-mounted.jpg" alt="Home Assistant Kiosk wall-mounted, showing a live dashboard" width="600"></p>
 
 ## Features
 
@@ -16,6 +18,15 @@ Originally built as a one-off for a kitchen wall display; this project genericiz
 - Auto-negotiates your display's native resolution (no hardcoded video mode) and auto-detects the touchscreen device, so rotation and touch alignment work correctly regardless of which panel you use
 - Wi-Fi watchdog (auto-recovers a dropped connection)
 - Auto-expands to fill whatever size SD card it's flashed to (the image itself ships shrunk down for a fast download)
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/setup-wizard-keyboard.jpg" alt="First-boot setup wizard with on-screen keyboard"><br><sub>First-boot setup wizard, with its own on-screen keyboard</sub></td>
+<td width="50%"><img src="docs/images/screensaver-example.jpg" alt="Kiosk screensaver showing weather and status"><br><sub>Screensaver mode</sub></td>
+</tr>
+</table>
 
 ## Which Raspberry Pi models work
 
@@ -112,7 +123,7 @@ MQTT topics for live control (dashboard URL, screensaver URL/timeout, refresh, r
 
 ## What's inside
 
-Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) plus a set of small MQTT-bridge services that expose the physical display and any attached sensors as MQTT topics, so Home Assistant (or anything else) can read/control them. See [ANALYSIS.md](ANALYSIS.md) for the full architecture breakdown of the original prototype this was built from.
+Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) plus a set of small MQTT-bridge services that expose the physical display and any attached sensors as MQTT topics, so Home Assistant (or anything else) can read/control them.
 
 ## Home Assistant integration (HACS)
 
@@ -122,7 +133,7 @@ Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) 
 
 ```
 build/
-  build-image.sh           - strips personal data, installs the wizard, patches kiosk.sh, builds the splash
+  build-image.sh           - assembles the image: installs the wizard, patches kiosk.sh, builds the splash
   kiosk_config.ini.example - generic config template (wizard fills this in)
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)
@@ -132,7 +143,7 @@ build/
   sudoers.d/                - narrowly-scoped passwordless sudo for the wizard and the config MQTT bridge
 custom_components/
   ha_kiosk_panel/           - companion HACS integration (see above)
-ANALYSIS.md                 - full teardown of the original prototype image
+docs/images/                - screenshots and logo used in this README
 HARDWARE.md                 - optional sensor wiring/pinouts (lux, C4001, RCWL-0516)
 README.md                   - this file
 ```
@@ -148,15 +159,6 @@ README.md                   - this file
 ## Known issues
 
 - None currently tracked.
-
-## Status
-
-- [x] Full SD card image captured, analyzed, and genericized — [ANALYSIS.md](ANALYSIS.md)
-- [x] Setup wizard (Wi-Fi, MQTT, sensors, SSH key, reconfigure-without-reflash)
-- [x] On-screen keyboard everywhere (wizard + live dashboard)
-- [x] Multiple real-hardware test passes — touch alignment, display rotation (console/splash/touch/dashboard together), resolution auto-negotiation, boot splash animation, all confirmed working
-- [x] Companion HACS integration (`ha_kiosk_panel`) with MQTT auto-discovery, ghost-kiosk-free live discovery, and a full entity set
-- [x] Published to GitHub with a compressed release image
 
 ## Future ideas
 

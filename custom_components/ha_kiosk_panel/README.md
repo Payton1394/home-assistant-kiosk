@@ -1,3 +1,5 @@
+<img src="icon.png" alt="Home Assistant Kiosk Panel icon" width="120">
+
 # Home Assistant Kiosk Panel
 
 A HACS integration for [Home Assistant Kiosk](../../README.md) devices. Turns each kiosk's MQTT topics into real entities — no manual MQTT sensor/switch YAML required.

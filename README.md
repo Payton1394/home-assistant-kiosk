@@ -123,7 +123,7 @@ MQTT topics for live control (dashboard URL, screensaver URL/timeout, refresh, r
 
 ## What's inside
 
-Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) plus a set of small, single-purpose systemd services that expose the physical display and any attached sensors as MQTT topics, so Home Assistant (or anything else) can read/control them. Every one of these is tracked source in this repo (`build/scripts/` + `build/systemd/`), not just something that happened to exist on a device's disk — `build-image.sh` installs each one explicitly.
+Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) plus a set of small, single-purpose systemd services that expose the physical display and any attached sensors as MQTT topics, so Home Assistant (or anything else) can read/control them. Every one of these is tracked source in this repo (`build/scripts/` + `build/systemd/`), not just something that happened to exist on a device's disk — the image-build tooling installs each one explicitly.
 
 | Service | Always on? | What it does |
 |---|---|---|
@@ -151,7 +151,6 @@ The "if MQTT/sensor configured" ones are installed disabled by default — the s
 
 ```
 build/
-  build-image.sh           - assembles the image: installs every service below, patches kiosk.sh, builds the splash
   kiosk_config.ini.example - generic config template (wizard fills this in)
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)

@@ -1,0 +1,18 @@
+[Unit]
+Description=C4001 mmWave presence and distance -> MQTT
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kiosk
+WorkingDirectory=/home/kiosk
+ExecStart=/usr/bin/python3 /home/kiosk/c4001_presence_mqtt.py
+Restart=always
+RestartSec=5
+
+# Give it access to the serial port
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

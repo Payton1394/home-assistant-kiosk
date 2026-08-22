@@ -1,0 +1,7 @@
+[Unit]
+Description=Kiosk network watchdog (restarts NetworkManager on prolonged outage)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kiosk-net-watchdog.sh

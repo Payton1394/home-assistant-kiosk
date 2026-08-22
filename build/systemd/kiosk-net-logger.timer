@@ -1,0 +1,10 @@
+[Unit]
+Description=Run kiosk network logger every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Unit=kiosk-net-logger.service
+
+[Install]
+WantedBy=timers.target

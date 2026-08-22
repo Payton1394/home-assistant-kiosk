@@ -1,0 +1,15 @@
+# /etc/systemd/system/rcwl-presence.service
+[Unit]
+Description=RCWL-0516 presence to MQTT and screensaver keepalive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kiosk
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/python3 /home/kiosk/rcwl_presence.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

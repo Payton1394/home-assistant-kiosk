@@ -1,0 +1,15 @@
+[Unit]
+Description=WiFi connectivity watchdog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/kiosk/wifi-watchdog.sh
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/home/kiosk
+
+[Install]
+WantedBy=multi-user.target

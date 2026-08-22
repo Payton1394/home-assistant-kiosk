@@ -1,0 +1,14 @@
+[Unit]
+Description=Kiosk MQTT Reboot Listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=kiosk
+WorkingDirectory=/home/kiosk
+ExecStart=/home/kiosk/kiosk_reboot_mqtt.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

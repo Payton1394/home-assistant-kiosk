@@ -1,0 +1,13 @@
+[Unit]
+Description=Publish RPi CPU Temp to MQTT
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=kiosk
+ExecStart=/home/kiosk/pub_temp_mqtt.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

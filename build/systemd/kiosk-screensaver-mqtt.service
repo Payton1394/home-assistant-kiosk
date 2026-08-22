@@ -1,0 +1,16 @@
+[Unit]
+Description=Kiosk XScreenSaver MQTT Control
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=kiosk
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/kiosk/.Xauthority
+WorkingDirectory=/home/kiosk
+ExecStart=/home/kiosk/kiosk_screensaver_mqtt.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

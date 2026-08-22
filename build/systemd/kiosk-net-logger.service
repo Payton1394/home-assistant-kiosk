@@ -1,0 +1,6 @@
+[Unit]
+Description=Kiosk network logger
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kiosk-net-logger.sh

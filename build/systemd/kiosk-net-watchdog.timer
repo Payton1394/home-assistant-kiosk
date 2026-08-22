@@ -1,0 +1,10 @@
+[Unit]
+Description=Run kiosk network watchdog every 1 minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=kiosk-net-watchdog.service
+
+[Install]
+WantedBy=timers.target

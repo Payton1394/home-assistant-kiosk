@@ -123,7 +123,25 @@ MQTT topics for live control (dashboard URL, screensaver URL/timeout, refresh, r
 
 ## What's inside
 
-Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) plus a set of small MQTT-bridge services that expose the physical display and any attached sensors as MQTT topics, so Home Assistant (or anything else) can read/control them.
+Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) plus a set of small, single-purpose systemd services that expose the physical display and any attached sensors as MQTT topics, so Home Assistant (or anything else) can read/control them. Every one of these is tracked source in this repo (`build/scripts/` + `build/systemd/`), not just something that happened to exist on a device's disk — `build-image.sh` installs each one explicitly.
+
+| Service | Always on? | What it does |
+|---|---|---|
+| `kiosk.service` | Yes | Starts X + Chromium fullscreen (`kiosk.sh` via `startx`). The core of the kiosk. |
+| `wifi-watchdog.service` | Yes | Pings out every 30s; if it fails, bounces the `wlan0` interface down/up. |
+| `kiosk-net-watchdog.timer` → `.service` | Yes (every 1 min) | After 2 consecutive failed gateway pings, restarts `NetworkManager` (cooldown-limited). A different, complementary recovery path from the watchdog above — this one targets a stuck NetworkManager/association rather than the interface itself. |
+| `kiosk-net-logger.timer` → `.service` | Yes (every 2 min) | Appends a network/throttle diagnostic snapshot to `~/kiosk-net.log` whenever a gateway ping fails or the Pi's throttle status changes — for after-the-fact debugging, not corrective action. |
+| `kiosk-config-mqtt.service` | If MQTT configured | Dashboard/screensaver URL + screensaver timeout as MQTT command/state topics, plus the identity/availability payload the HA integration's auto-discovery relies on. See [kiosk_config_mqtt.py](build/scripts/kiosk_config_mqtt.py). |
+| `kiosk-screensaver-mqtt.service` | If MQTT configured | Screensaver on/off via MQTT, backed by `xscreensaver-command`. |
+| `kiosk-dpms-mqtt.service` | If MQTT configured | Display power on/off via MQTT, backed by `xset dpms`. |
+| `kiosk_brightness_mqtt.service` | If MQTT configured | Backlight brightness via MQTT, backed by `ddcutil` (requires a DDC/CI-capable monitor). |
+| `kiosk-reboot-mqtt.service` | If MQTT configured | Reboots the Pi on an MQTT command. |
+| `rpi-temp-mqtt.service` | If MQTT configured | Publishes CPU temperature every 30s (`vcgencmd measure_temp`). |
+| `kiosk-lux-mqtt.service` | If lux sensor enabled | Ambient light level from a BH1750 (GY-302) sensor over I2C. |
+| `c4001_presence.service` | If C4001 sensor enabled | Presence (and, depending on sensor mode, distance) from a DFRobot C4001 mmWave sensor over UART. Manual tuning tools live in [build/scripts/c4001-tools/](build/scripts/c4001-tools/). |
+| `rcwl-presence.service` | If RCWL sensor enabled | Presence from an RCWL-0516 microwave radar sensor over GPIO. |
+
+The "if MQTT/sensor configured" ones are installed disabled by default — the setup wizard enables exactly the ones a given kiosk needs based on what you fill in.
 
 ## Home Assistant integration (HACS)
 
@@ -133,12 +151,13 @@ Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) 
 
 ```
 build/
-  build-image.sh           - assembles the image: installs the wizard, patches kiosk.sh, builds the splash
+  build-image.sh           - assembles the image: installs every service below, patches kiosk.sh, builds the splash
   kiosk_config.ini.example - generic config template (wizard fills this in)
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)
-  systemd/                  - unit files (wizard, rootfs auto-expand, SSH host key regen, splash, config MQTT bridge)
-  scripts/                  - kiosk.sh, expand-rootfs.sh, kiosk-reconfigure.sh, kiosk_config_mqtt.py, generate_splash.py
+  systemd/                  - every unit file installed on the kiosk (see the service table above)
+  scripts/                  - every script those units run (MQTT bridges, watchdogs, wizard support, splash);
+                              c4001-tools/ holds manual sensor tuning/debug utilities (not run automatically)
   assets/                   - source logo + spinner animation the boot splash is built from
   sudoers.d/                - narrowly-scoped passwordless sudo for the wizard and the config MQTT bridge
 custom_components/

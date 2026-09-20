@@ -8,8 +8,9 @@ ini_read() {
     $0==s { in_section=1; next }
     /^\[/ { in_section=0 }
     in_section && $1~"^ *"k" *$" {
-      gsub(/^[ \t]+|[ \t]+$/, "", $2)
-      print $2
+      # the value may contain "=" (URL query strings): keep all after the first one
+      sub(/^[^=]*=/, ""); gsub(/^[ \t]+|[ \t]+$/, "")
+      print
       exit
     }' "$file"
 }

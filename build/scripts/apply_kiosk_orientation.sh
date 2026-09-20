@@ -56,7 +56,11 @@ echo "TOUCH_DEV from ini: '$TOUCH_DEV'"
 [ -z "$ROTATION" ] && ROTATION="normal"
 
 echo "Running xrandr with rotation '$ROTATION'..."
-xrandr --output HDMI-1 --mode 1920x1080 --rate 60 --rotate "$ROTATION"
+# --auto picks the panel's preferred (native) mode from its EDID. Forcing
+# 1920x1080 here drove the 1280x800 8" panels at 1080p: the scaler accepted
+# it, the desktop ran at 1080x1920 rotated, and everything rendered small and
+# soft. The 15" 1080p panels get the same mode either way.
+xrandr --output HDMI-1 --auto --rotate "$ROTATION"
 
 if [ -z "$TOUCH_DEV" ]; then
   # Nobody types an exact xinput device name/id into the wizard in practice -

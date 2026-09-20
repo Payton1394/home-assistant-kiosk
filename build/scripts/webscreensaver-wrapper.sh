@@ -9,8 +9,9 @@ get_ini_value() {
     $0 ~ "\\["section"\\]" { in_section=1; next }
     /^\[/ { in_section=0 }
     in_section && $1 ~ "^"key"[[:space:]]*$" {
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
-      print $2
+      # the value may contain "=" (URL query strings): keep all after the first one
+      sub(/^[^=]*=/, ""); gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      print
       exit
     }
   ' section="$section" key="$key" "$CONFIG_FILE"

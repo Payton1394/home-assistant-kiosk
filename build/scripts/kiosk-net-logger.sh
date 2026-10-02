@@ -34,6 +34,12 @@ if [ -n "$THROTTLED_HEX" ] && [ "$THROTTLED_HEX" != "$LAST_THROTTLED" ]; then
 fi
 [ -n "$THROTTLED_HEX" ] && echo "$THROTTLED_HEX" > "$LAST_THROTTLED_FILE"
 
+# On Ethernet the Wi-Fi is not in use: no ping, no snapshot. Until 2026-10-01
+# this wrote ~95 KB to kiosk-net.log every 2 minutes on the wired kiosks.
+# (The throttle-status line above still runs.)
+if [ "$(cat /sys/class/net/eth0/carrier 2>/dev/null)" = "1" ] && /usr/sbin/ip -4 route show default dev eth0 2>/dev/null | grep -q .; then
+  exit 0
+fi
 ping -I "$IFACE" -c2 -W3 "$TARGET" >/dev/null 2>&1
 RC=$?
 

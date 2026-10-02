@@ -10,6 +10,12 @@ IP_BIN="/usr/sbin/ip"
 LOGGER_BIN="/usr/bin/logger"
 
 while true; do
+    # On Ethernet the Wi-Fi is not in use: nothing to watch. Until 2026-10-01
+    # this took wlan0 down and up about every minute on the wired kiosks.
+    if [ "$(cat /sys/class/net/eth0/carrier 2>/dev/null)" = "1" ] && /usr/sbin/ip -4 route show default dev eth0 2>/dev/null | grep -q .; then
+        sleep "$SLEEP_BETWEEN_CHECKS"
+        continue
+    fi
     $PING_BIN -I "$IFACE" -c "$PING_COUNT" "$TARGET" >/dev/null 2>&1
     if [ $? -ne 0 ]; then
         $LOGGER_BIN "wifi-watchdog: No network on $IFACE, restarting interface"

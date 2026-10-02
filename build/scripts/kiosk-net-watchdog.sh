@@ -17,6 +17,12 @@ mkdir -p "$STATE_DIR"
 
 timestamp() { date "+%Y-%m-%d %H:%M:%S"; }
 
+# On Ethernet the Wi-Fi is not in use: nothing to watch. Until 2026-10-01 this
+# restarted NetworkManager every few minutes on the wired kiosks.
+if [ "$(cat /sys/class/net/eth0/carrier 2>/dev/null)" = "1" ] && /usr/sbin/ip -4 route show default dev eth0 2>/dev/null | grep -q .; then
+  echo 0 > "$FAIL_COUNT_FILE"
+  exit 0
+fi
 ping -I "$IFACE" -c2 -W3 "$TARGET" >/dev/null 2>&1
 RC=$?
 

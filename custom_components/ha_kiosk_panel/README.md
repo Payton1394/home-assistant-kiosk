@@ -29,9 +29,9 @@ If the kiosk's IP changes later (e.g. a DHCP lease renewal), fix it via the inte
 | Software Version | sensor | `panel/state` (`sw_version` field; not retained, updates within ~60s) |
 | Presence | binary_sensor | `presence/state` or `presence` |
 | Connectivity | binary_sensor | `availability` (always shown, not gated by it) |
-| Brightness | number | `brightness/set` / `brightness/state` |
+| Brightness | number | `brightness/set` / `brightness/state` (state retained, sent again every 5 min) |
 | Screensaver Timeout | number | `screensaver_timeout/set` / `screensaver_timeout/state` |
-| Display Power | switch | `dpms/set` / `dpms/state` |
+| Display Power | switch | `dpms/set` / `dpms/state` (state retained, sent again every 5 min) |
 | Screensaver Active | switch | `screensaver/set` / `screensaver/state` |
 | Reboot | button | `reboot/set` |
 | Refresh Dashboard | button | `refresh/set` (Ctrl+F5 in Chromium) |

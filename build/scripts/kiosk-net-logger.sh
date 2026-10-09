@@ -1,7 +1,9 @@
 #!/bin/bash
 LOG=/home/kiosk/kiosk-net.log
-TARGET=192.168.1.1
 IFACE=wlan0
+# Ping the Wi-Fi's own default gateway, whatever network the kiosk is on (was a fixed 192.168.1.1).
+# No route on wlan0 means no connectivity, so an empty target simply counts as a failed check.
+TARGET=$(/usr/sbin/ip -4 route show default dev "$IFACE" 2>/dev/null | awk '{print $3; exit}')
 STATE_DIR=/run/kiosk-net-logger
 LAST_THROTTLED_FILE="$STATE_DIR/last_throttled"
 

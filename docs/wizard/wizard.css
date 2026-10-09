@@ -1,0 +1,53 @@
+/* Same palette as the kiosk's on-screen setup wizard (build/setup_wizard/static/style.css). */
+:root {
+  --bg: #0f1420; --panel: #161d2e; --panel-alt: #1e2740; --border: #2a3350;
+  --text: #e8ecf6; --text-dim: #93a0c0; --accent: #4f8cff; --accent-hover: #6fa1ff;
+  --danger: #ff5f6d; --danger-bg: #3a1620; --ok: #3ddc84; --radius: 14px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding-inline: 16px; padding-block: 24px 48px; }
+header.top, main, footer { max-width: 760px; margin: 0 auto; }
+header.top { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
+header .logo { border-radius: 12px; flex: none; }
+h1 { margin: 0 0 4px; font-size: 1.7rem; text-wrap: balance; }
+.sub { margin: 0; color: var(--text-dim); max-width: 62ch; }
+code { background: var(--panel-alt); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+.steps { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; }
+.steps ol { margin: 0 0 10px; padding-left: 1.3em; display: grid; gap: 6px; }
+.privacy { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
+form { display: grid; gap: 16px; }
+fieldset { margin: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 14px 20px 18px; display: grid; gap: 6px; min-width: 0; }
+legend { font-weight: 700; font-size: 1.05rem; padding: 0 6px; }
+.opt { font-weight: 400; color: var(--text-dim); font-size: 0.85rem; margin-left: 6px; }
+.req { font-weight: 400; color: var(--text-dim); font-size: 0.8rem; margin-left: 4px; }
+label, .label { font-weight: 600; margin-top: 8px; }
+.label { margin-bottom: 0; }
+label.check { font-weight: 400; display: flex; gap: 10px; align-items: center; margin-top: 6px; cursor: pointer; }
+input, select, textarea { width: 100%; font: inherit; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+input.short { max-width: 8rem; }
+textarea { resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.invalid { border-color: var(--danger); background: var(--danger-bg); }
+.hint { margin: 2px 0 0; color: var(--text-dim); font-size: 0.9rem; }
+.row { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.row > div { flex: 1 1 200px; display: grid; gap: 6px; min-width: 0; }
+.row > div.grow { flex: 3 1 260px; }
+.pw { display: flex; gap: 8px; }
+.pw input { flex: 1; min-width: 0; }
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-alt); color: var(--text); padding: 10px 14px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; padding: 12px 20px; }
+button.primary:hover { background: var(--accent-hover); }
+details { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 20px; }
+details[open] { display: grid; gap: 6px; padding-bottom: 18px; }
+summary { cursor: pointer; font-weight: 700; }
+.errors { background: var(--danger-bg); border: 1px solid var(--danger); border-radius: var(--radius); padding: 10px 18px; }
+.errors p { margin: 4px 0; font-weight: 700; }
+.errors ul { margin: 4px 0 6px; padding-left: 1.2em; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+.done { color: var(--ok); }
+footer { margin-top: 28px; color: var(--text-dim); font-size: 0.9rem; }
+@media (max-width: 520px) { h1 { font-size: 1.4rem; } fieldset, .steps, details { padding-inline: 14px; } header .logo { width: 44px; height: 44px; } }

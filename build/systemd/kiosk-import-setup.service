@@ -1,0 +1,16 @@
+[Unit]
+Description=Home Assistant Kiosk - apply kiosk-setup.json from the boot partition (web setup wizard)
+# Only when a setup file has been copied onto the SD card's boot partition ("bootfs").
+ConditionPathExists=/boot/firmware/kiosk-setup.json
+After=NetworkManager.service local-fs.target
+Wants=NetworkManager.service
+Before=kiosk-wizard.service kiosk.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/kiosk-import-setup.py
+TimeoutStartSec=300
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

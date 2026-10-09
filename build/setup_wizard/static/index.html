@@ -68,8 +68,13 @@
 
     <section>
       <h2>5. Screensaver <span class="optional">(optional)</span></h2>
+      <label class="checkbox-row">
+        <input type="checkbox" id="xscreensaver" name="xscreensaver">
+        <span>Use the built-in screensaver (xscreensaver, installed over the internet when you save)</span>
+      </label>
       <label for="screensaver_url">Screensaver URL</label>
-      <input type="url" id="screensaver_url" name="screensaver_url" placeholder="Leave blank to disable">
+      <input type="url" id="screensaver_url" name="screensaver_url" placeholder="Shown when the screensaver starts">
+      <p class="hint">Leave the box unticked if your dashboard has its own screensaver, or you don't want one. The screen still turns off after the time set under Advanced.</p>
     </section>
 
     <details class="adv">
@@ -139,8 +144,8 @@
             <input type="number" id="screensaver_timeout" name="screensaver_timeout" value="300">
           </div>
           <div>
-            <label for="dpms_timeout">Screen off after (sec)</label>
-            <input type="number" id="dpms_timeout" name="dpms_timeout" value="600">
+            <label for="dpms_timeout">Screen off after (sec, 0 = never)</label>
+            <input type="number" id="dpms_timeout" name="dpms_timeout" min="0" value="0">
           </div>
         </div>
       </div>

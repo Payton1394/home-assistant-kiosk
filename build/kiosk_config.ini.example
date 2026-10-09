@@ -13,11 +13,13 @@ brightness_max = 100
 
 [screensaver]
 timeout_seconds = 300
-dpms_off_seconds = 600
+dpms_off_seconds = 0
 command_topic = screensaver/set
 state_topic = screensaver/state
 enabled = false
 url =
+# true = use xscreensaver as the screensaver (installed on demand by the setup wizard; the image ships without it)
+xscreensaver = false
 
 [dpms]
 command_topic = dpms/set

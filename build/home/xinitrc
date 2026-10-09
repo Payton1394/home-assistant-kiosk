@@ -1,0 +1,26 @@
+#!/bin/sh
+# X session for the kiosk user (installed by the image build as /home/kiosk/.xinitrc).
+CONFIG=/home/kiosk/kiosk_config.ini
+ini() {   # ini <section> <key>: value from kiosk_config.ini (values may contain "=")
+  awk -v s="[$1]" -v k="$2" '$0 == s { f = 1; next } /^\[/ { f = 0 }
+    f { line = $0; sub(/=.*/, "", line); gsub(/^[ \t]+|[ \t]+$/, "", line)
+        if (line == k) { sub(/^[^=]*=/, ""); gsub(/^[ \t]+|[ \t]+$/, ""); print; exit } }' "$CONFIG" 2>/dev/null
+}
+xset s off
+xset s noblank
+# Apply resolution + orientation + touch from kiosk_config.ini
+/home/kiosk/apply_kiosk_orientation.sh &
+if [ "$(ini screensaver xscreensaver)" = "true" ] && command -v xscreensaver >/dev/null 2>&1; then
+  # Built-in screensaver (opt-in in the setup wizard); it also handles idle screen-off.
+  xscreensaver -no-splash &
+else
+  # No xscreensaver: with [screensaver] dpms_off_seconds = 0 (default) X never powers the screen down by
+  # itself, so Home Assistant owns screen power (kiosk_dpms_mqtt.sh). A number turns the screen off after
+  # that many idle seconds; MQTT/Home Assistant can still switch it on and off at any time.
+  off="$(ini screensaver dpms_off_seconds)"
+  case "$off" in ''|*[!0-9]*) off=0 ;; esac
+  if [ "$off" -gt 0 ]; then xset +dpms; xset dpms 0 0 "$off"; else xset dpms 0 0 0; xset -dpms; fi
+fi
+unclutter -idle 1 -root &
+openbox-session &
+~/kiosk.sh

@@ -70,15 +70,24 @@ Full wiring diagrams, physical pin numbers, and the exact `config.txt` overlays 
 2. Flash it to your microSD card with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (**Choose OS → Use custom**, point it at the downloaded file) — this is the recommended tool; it verifies the write and handles `.xz` decompression automatically. Rufus and Win32DiskImager also work if you'd rather use something lighter than Etcher.
 3. Insert the card into the Pi, connect your display (and touchscreen, if using one) and power, and boot.
 
-### 2. Walk through the on-screen setup wizard
+### 2. Set it up: from your computer, or on the screen
 
-The wizard appears automatically on first boot — no SSH, no external keyboard/mouse needed, it has its own on-screen keyboard. It's eight steps, the last two collapsed by default:
+**Option A: the web setup wizard (no keyboard or touch needed).** Open the
+[**Kiosk Setup Wizard**](https://payton1394.github.io/home-assistant-kiosk/wizard/) on any computer or phone, fill in the same
+settings as below, and download `kiosk-setup.json`. After flashing, re-insert the card, copy the file onto the `bootfs`
+drive, eject and boot. On first boot the kiosk applies it (Wi-Fi, dashboard, MQTT, sensors, rotation, SSH key, password),
+deletes the file (it holds your passwords) and starts the dashboard. A `kiosk-setup-result.txt` without passwords is left on
+`bootfs` saying what was applied, or what went wrong (then the file stays and the on-screen wizard still opens).
+The page runs entirely in your browser; nothing you type is sent anywhere. Dropping a new `kiosk-setup.json` on the card later
+re-configures the kiosk the same way. Needs an image from v1.1.0 on.
+
+**Option B: the on-screen setup wizard.** Boot without a setup file and the wizard appears automatically on first boot — no SSH, no external keyboard/mouse needed, it has its own on-screen keyboard. It's eight steps, the last two collapsed by default:
 
 1. **Device** — a name (e.g. "Kitchen"). This becomes the hostname and the MQTT topic prefix (`kiosk/kitchen`).
 2. **Wi-Fi** — scans nearby networks, or check "already connected" if you're on Ethernet.
 3. **Dashboard** — the URL of the Home Assistant dashboard you want shown fullscreen.
 4. **Screen orientation** — normal/right/left/inverted; handles display rotation, touch alignment, console, and the boot splash together.
-5. **Screensaver** *(optional)* — a URL to show when idle (e.g. a photo slideshow server).
+5. **Screensaver** *(optional)* — tick **Use the built-in screensaver** to get xscreensaver showing a URL when idle (e.g. a photo slideshow server). The image ships without xscreensaver; ticking this installs it (needs internet). Leave it unticked if your dashboard has its own screensaver: nothing of xscreensaver is installed, and the screen still turns off after the timeout set under Advanced.
 6. **MQTT & smart features** *(optional — leave the broker field blank to run as a plain browser kiosk)* — broker host/port/credentials, plus checkboxes for whichever optional sensors you've actually wired up (see [Optional sensors](#optional-sensors)).
 7. **Remote access** — set a real SSH/terminal password (the image ships with a documented default, `ChangeMe-Kiosk1!` for user `kiosk`, worth changing before this touches a network you care about) and/or paste an SSH public key for passwordless access.
 8. **Advanced** *(optional)* — touch input device override (auto-detected normally, only needed if that fails), brightness min/max, screensaver/screen-off timeouts.
@@ -114,7 +123,7 @@ The wizard writes everything to `~/kiosk_config.ini` on the kiosk (`build/kiosk_
 | `[kiosk]` | `panel_name` | Slugified device name (hostname, MQTT topic). |
 | `[kiosk]` | `brightness_min` / `brightness_max` | Clamp range for the brightness MQTT control (uses `ddcutil`, requires a DDC/CI-capable monitor). |
 | `[screensaver]` | `url` | Screensaver page URL; blank disables it. |
-| `[screensaver]` | `timeout_seconds` / `dpms_off_seconds` | Idle time before screensaver / before the display powers off entirely. |
+| `[screensaver]` | `timeout_seconds` / `dpms_off_seconds` | Idle time before screensaver / before the display powers off by itself (0, the default, = never: Home Assistant switches it over MQTT). |
 | `[c4001]` | `uart_device`, `baud`, `hold_seconds` | mmWave sensor UART settings and presence hold time. |
 | `[display]` | `rotation` | `normal` / `right` / `left` / `inverted`. |
 | `[display]` | `touch_device` | Touch input override; leave blank for auto-detection. |
@@ -132,7 +141,7 @@ Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) 
 | `kiosk-net-watchdog.timer` → `.service` | Yes (every 1 min) | After 2 consecutive failed gateway pings, restarts `NetworkManager` (cooldown-limited). A different, complementary recovery path from the watchdog above — this one targets a stuck NetworkManager/association rather than the interface itself. |
 | `kiosk-net-logger.timer` → `.service` | Yes (every 2 min) | Appends a network/throttle diagnostic snapshot to `~/kiosk-net.log` whenever a gateway ping fails or the Pi's throttle status changes — for after-the-fact debugging, not corrective action. |
 | `kiosk-config-mqtt.service` | If MQTT configured | Dashboard/screensaver URL + screensaver timeout as MQTT command/state topics, plus the identity/availability payload the HA integration's auto-discovery relies on. See [kiosk_config_mqtt.py](build/scripts/kiosk_config_mqtt.py). |
-| `kiosk-screensaver-mqtt.service` | If MQTT configured | Screensaver on/off via MQTT, backed by `xscreensaver-command`. |
+| `kiosk-screensaver-mqtt.service` | If MQTT configured and the built-in screensaver is on | Screensaver on/off via MQTT, backed by `xscreensaver-command`. |
 | `kiosk-dpms-mqtt.service` | If MQTT configured | Display power on/off via MQTT, backed by `xset dpms`. |
 | `kiosk_brightness_mqtt.service` | If MQTT configured | Backlight brightness via MQTT, backed by `ddcutil` (requires a DDC/CI-capable monitor). |
 | `kiosk-reboot-mqtt.service` | If MQTT configured | Reboots the Pi on an MQTT command. |
@@ -153,6 +162,10 @@ The "if MQTT/sensor configured" ones are installed disabled by default — the s
 build/
   kiosk_config.ini.example - generic config template (wizard fills this in)
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
+  scripts/kiosk-import-setup.py + systemd/kiosk-import-setup.service - applies kiosk-setup.json from bootfs on boot
+  scripts/kiosk-install-xscreensaver.sh - installs xscreensaver on demand (opt-in; not shipped in the image)
+  scripts/kiosk-set-hostname.sh - sets a hostname that survives reboots (also updates cloud-init's user-data and /etc/hosts)
+  home/xinitrc              - the kiosk user's X session (~/.xinitrc): starts xscreensaver only when opted in
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)
   systemd/                  - every unit file installed on the kiosk (see the service table above)
   scripts/                  - every script those units run (MQTT bridges, watchdogs, wizard support, splash);
@@ -161,6 +174,7 @@ build/
   sudoers.d/                - narrowly-scoped passwordless sudo for the wizard and the config MQTT bridge
 custom_components/
   ha_kiosk_panel/           - companion HACS integration (see above)
+docs/wizard/                - the web setup wizard (GitHub Pages), makes kiosk-setup.json in the browser
 docs/images/                - screenshots and logo used in this README
 HARDWARE.md                 - optional sensor wiring/pinouts (lux, C4001, RCWL-0516)
 README.md                   - this file
@@ -171,6 +185,7 @@ README.md                   - this file
 - **Default login**: the `kiosk` user ships with the password `ChangeMe-Kiosk1!` for local terminal/SSH access — set your own during first-boot setup (wizard step 7, "Remote access") or later via `kiosk-reconfigure`. Change this before the device touches any network you care about.
 - No SSH keys, Wi-Fi passwords, or MQTT credentials are baked into the image — everything is entered fresh through the wizard on first boot.
 - The wizard's local HTTP server binds to `127.0.0.1` only; it's reachable exclusively from the kiosk's own Chromium on the kiosk's own screen, never over the network.
+- Chromium starts with `--use-fake-ui-for-media-stream` and `--autoplay-policy=no-user-gesture-required`, so the dashboard can use the microphone (intercom, voice) and play sounds (doorbell chimes) without anyone tapping the screen. The kiosk only opens the dashboard URL you configure, but any page it shows gets the same rights: point it only at your own Home Assistant.
 - SSH access is opt-in: paste a public key into the wizard's "Remote access" section, or manage `~/.ssh/authorized_keys` yourself.
 - The `kiosk` user has a narrowly-scoped `sudoers.d` rule (Wi-Fi, hostname, specific systemd units, reboot, changing the terminal password) rather than blanket sudo — see `build/sudoers.d/kiosk-wizard` for the exact rule and rationale.
 

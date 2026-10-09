@@ -24,7 +24,7 @@
       xscreensaver: $('xscreensaver').checked,
       screensaver_url: $('xscreensaver').checked ? val('screensaver_url') : '',
       screensaver_timeout: val('screensaver_timeout') || '300',
-      dpms_timeout: val('dpms_timeout') === '' ? '600' : val('dpms_timeout'),
+      dpms_timeout: val('dpms_timeout') === '' ? '0' : val('dpms_timeout'),
       rotation: $('rotation').value,
       touch_device: val('touch_device'),
       brightness_min: val('brightness_min') || '10',

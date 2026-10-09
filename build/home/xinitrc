@@ -14,8 +14,9 @@ if [ "$(ini screensaver xscreensaver)" = "true" ] && command -v xscreensaver >/d
   # Built-in screensaver (opt-in in the setup wizard); it also handles idle screen-off.
   xscreensaver -no-splash &
 else
-  # No xscreensaver: X turns the screen off by itself after [screensaver] dpms_off_seconds (0 = never).
-  # MQTT/Home Assistant can still switch the screen on and off at any time (kiosk_dpms_mqtt.sh).
+  # No xscreensaver: with [screensaver] dpms_off_seconds = 0 (default) X never powers the screen down by
+  # itself, so Home Assistant owns screen power (kiosk_dpms_mqtt.sh). A number turns the screen off after
+  # that many idle seconds; MQTT/Home Assistant can still switch it on and off at any time.
   off="$(ini screensaver dpms_off_seconds)"
   case "$off" in ''|*[!0-9]*) off=0 ;; esac
   if [ "$off" -gt 0 ]; then xset +dpms; xset dpms 0 0 "$off"; else xset dpms 0 0 0; xset -dpms; fi

@@ -65,15 +65,16 @@
     <fieldset>
       <legend>4. Screensaver <span class="opt">optional</span></legend>
       <label class="check"><input type="checkbox" id="xscreensaver"> Use the built-in screensaver (xscreensaver)</label>
-      <p class="hint">The image ships without xscreensaver. Tick this and the kiosk installs it over the internet on first boot; leave it unticked and nothing of it is installed (use your dashboard's own screensaver, or none). The screen still turns off after the time below either way.</p>
+      <p class="hint">The image ships without xscreensaver. Tick this and the kiosk installs it over the internet on first boot; leave it unticked and nothing of it is installed (use your dashboard's own screensaver, or none).</p>
       <div id="xss_fields" hidden>
         <label for="screensaver_url">Screensaver URL</label>
         <input id="screensaver_url" type="url" placeholder="https://example.com/slideshow" spellcheck="false">
       </div>
       <div class="row">
         <div id="xss_timeout" hidden><label for="screensaver_timeout">Screensaver after (seconds)</label><input id="screensaver_timeout" type="number" min="10" value="300"></div>
-        <div><label for="dpms_timeout">Screen off after (seconds, 0 = never)</label><input id="dpms_timeout" type="number" min="0" value="600"></div>
+        <div><label for="dpms_timeout">Screen off after (seconds, 0 = never)</label><input id="dpms_timeout" type="number" min="0" value="0"></div>
       </div>
+      <p class="hint">Leave 0 when Home Assistant switches the screen on and off (the kiosk integration does this over MQTT). A number turns the screen off by itself after that many idle seconds.</p>
     </fieldset>
 
     <fieldset>

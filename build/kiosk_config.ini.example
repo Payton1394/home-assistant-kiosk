@@ -13,7 +13,7 @@ brightness_max = 100
 
 [screensaver]
 timeout_seconds = 300
-dpms_off_seconds = 600
+dpms_off_seconds = 0
 command_topic = screensaver/set
 state_topic = screensaver/state
 enabled = false

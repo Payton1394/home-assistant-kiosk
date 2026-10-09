@@ -123,7 +123,7 @@ The wizard writes everything to `~/kiosk_config.ini` on the kiosk (`build/kiosk_
 | `[kiosk]` | `panel_name` | Slugified device name (hostname, MQTT topic). |
 | `[kiosk]` | `brightness_min` / `brightness_max` | Clamp range for the brightness MQTT control (uses `ddcutil`, requires a DDC/CI-capable monitor). |
 | `[screensaver]` | `url` | Screensaver page URL; blank disables it. |
-| `[screensaver]` | `timeout_seconds` / `dpms_off_seconds` | Idle time before screensaver / before the display powers off entirely. |
+| `[screensaver]` | `timeout_seconds` / `dpms_off_seconds` | Idle time before screensaver / before the display powers off by itself (0, the default, = never: Home Assistant switches it over MQTT). |
 | `[c4001]` | `uart_device`, `baud`, `hold_seconds` | mmWave sensor UART settings and presence hold time. |
 | `[display]` | `rotation` | `normal` / `right` / `left` / `inverted`. |
 | `[display]` | `touch_device` | Touch input override; leave blank for auto-detection. |
@@ -164,6 +164,7 @@ build/
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
   scripts/kiosk-import-setup.py + systemd/kiosk-import-setup.service - applies kiosk-setup.json from bootfs on boot
   scripts/kiosk-install-xscreensaver.sh - installs xscreensaver on demand (opt-in; not shipped in the image)
+  scripts/kiosk-set-hostname.sh - sets a hostname that survives reboots (also updates cloud-init's user-data and /etc/hosts)
   home/xinitrc              - the kiosk user's X session (~/.xinitrc): starts xscreensaver only when opted in
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)
   systemd/                  - every unit file installed on the kiosk (see the service table above)

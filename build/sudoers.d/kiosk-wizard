@@ -14,6 +14,7 @@ kiosk ALL=(root) NOPASSWD: /usr/bin/systemctl enable *
 kiosk ALL=(root) NOPASSWD: /usr/bin/systemctl disable *
 kiosk ALL=(root) NOPASSWD: /usr/sbin/chpasswd
 kiosk ALL=(root) NOPASSWD: /usr/local/sbin/set-boot-rotation.py
+kiosk ALL=(root) NOPASSWD: /usr/local/sbin/kiosk-set-hostname
 
 # kiosk-config-mqtt.service (build/scripts/kiosk_config_mqtt.py) needs this
 # one privileged action to apply a dashboard-URL change live, without a

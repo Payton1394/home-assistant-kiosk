@@ -31,6 +31,10 @@ sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' \
   ~/.config/chromium/Default/Preferences 2>/dev/null || true
 sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' \
   ~/.config/chromium/Default/Preferences 2>/dev/null || true
+# The profile lock names the host it was taken on. After a hostname change (setup
+# wizard) Chromium sees "Kiosk-1234", decides another computer holds the profile
+# and exits at once, so kiosk.sh would relaunch it forever. Nothing else uses it.
+rm -f ~/.config/chromium/SingletonLock ~/.config/chromium/SingletonCookie ~/.config/chromium/SingletonSocket
 
 EXT_DIR="/home/kiosk/keyboard_extension"
 

@@ -8,6 +8,7 @@ network.
 """
 import configparser
 import json
+import os
 import re
 import subprocess
 import sys
@@ -49,12 +50,14 @@ SENSOR_SERVICES = {
 # "Use the built-in screensaver" (on-screen or web setup wizard).
 XSCREENSAVER_MQTT_SERVICE = "kiosk-screensaver-mqtt.service"
 INSTALL_XSCREENSAVER = "/usr/local/sbin/kiosk-install-xscreensaver.sh"
+SET_HOSTNAME = "/usr/local/sbin/kiosk-set-hostname"
 
 
 def log(msg):
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     try:
-        with open(LOG_PATH, "a") as f:
+        # Private (600): the log records every command the wizard runs.
+        with os.fdopen(os.open(LOG_PATH, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600), "a") as f:
             f.write(f"[{ts}] {msg}\n")
     except OSError:
         pass
@@ -65,8 +68,16 @@ def slugify(name):
     return s or "kiosk"
 
 
+SECRET_ARGS = {"password", "wifi-sec.psk"}
+
+
+def redact(cmd):
+    """Command line for the log, without the Wi-Fi password (the value after "password" / "wifi-sec.psk")."""
+    return " ".join("***" if i and cmd[i - 1] in SECRET_ARGS else c for i, c in enumerate(cmd))
+
+
 def run(cmd, timeout=60, input=None):
-    log("run: " + " ".join(cmd) + (" <with stdin input>" if input else ""))
+    log("run: " + redact(cmd) + (" <with stdin input>" if input else ""))
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, input=input)
         log(f"  rc={p.returncode} stdout={p.stdout.strip()[:500]!r} stderr={p.stderr.strip()[:500]!r}")
@@ -95,13 +106,39 @@ def scan_wifi():
     return sorted(seen.values(), key=lambda x: -x["signal"])
 
 
-def connect_wifi(ssid, password):
+def wifi_device():
+    rc, out, err = run(["nmcli", "-t", "-f", "DEVICE,TYPE", "device"], timeout=10)
+    for line in out.splitlines():
+        dev, _, kind = line.partition(":")
+        if kind == "wifi":
+            return dev
+    return "wlan0"
+
+
+def connect_wifi(ssid, password, hidden=False):
+    """Saves a NetworkManager profile named after the network, then brings it up.
+    The profile is written explicitly (key-mgmt wpa-psk) because NetworkManager
+    1.50+ fails "nmcli device wifi connect <ssid> password <pw>" with
+    "802-11-wireless-security.key-mgmt: property is missing"."""
     if not ssid:
         return False, "No network selected"
+    nm = ["sudo", "-n", "nmcli"]
+    rc, out, err = run(nm + ["-g", "connection.type", "connection", "show", "id", ssid], timeout=10)
+    exists = rc == 0 and out.strip() == "802-11-wireless"
+    settings = ["802-11-wireless.ssid", ssid, "802-11-wireless.hidden", "yes" if hidden else "no",
+                "connection.autoconnect", "yes"]
     if password:
-        rc, out, err = run(["sudo", "-n", "nmcli", "device", "wifi", "connect", ssid, "password", password], timeout=45)
+        settings += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+    if exists:
+        if not password:
+            run(nm + ["connection", "modify", "id", ssid, "remove", "802-11-wireless-security"], timeout=15)
+        rc, out, err = run(nm + ["connection", "modify", "id", ssid] + settings, timeout=15)
     else:
-        rc, out, err = run(["sudo", "-n", "nmcli", "device", "wifi", "connect", ssid], timeout=45)
+        rc, out, err = run(nm + ["connection", "add", "type", "wifi", "ifname", wifi_device(), "con-name", ssid] + settings,
+                           timeout=15)
+    if rc != 0:
+        return False, err.strip() or out.strip() or "Could not save the Wi-Fi settings"
+    rc, out, err = run(nm + ["--wait", "45", "connection", "up", "id", ssid], timeout=60)
     return rc == 0, (err.strip() or out.strip() or ("Connected" if rc == 0 else "Unknown error"))
 
 
@@ -166,7 +203,7 @@ def read_current_config():
     result["screensaver_url"] = get("screensaver", "url")
     result["xscreensaver"] = get("screensaver", "xscreensaver", "false").lower() == "true"
     result["screensaver_timeout"] = get("screensaver", "timeout_seconds", "300")
-    result["dpms_timeout"] = get("screensaver", "dpms_off_seconds", "600")
+    result["dpms_timeout"] = get("screensaver", "dpms_off_seconds", "0")
     result["rotation"] = get("display", "rotation", "normal")
     result["touch_device"] = get("display", "touch_device")
     result["mqtt"] = {
@@ -216,7 +253,9 @@ def write_config(data):
     xss = bool(data.get("xscreensaver"))
     cfg.set("screensaver", "xscreensaver", "true" if xss else "false")
     cfg.set("screensaver", "timeout_seconds", str(data.get("screensaver_timeout") or 300))
-    cfg.set("screensaver", "dpms_off_seconds", str(data.get("dpms_timeout") or 600))
+    # 0 (default) = X never powers the screen down by itself; Home Assistant switches it over MQTT.
+    dpms_off = str(data.get("dpms_timeout", "")).strip()
+    cfg.set("screensaver", "dpms_off_seconds", dpms_off if dpms_off.isdigit() else "0")
     cfg.set("screensaver", "command_topic", "screensaver/set")
     cfg.set("screensaver", "state_topic", "screensaver/state")
     cfg.set("screensaver", "enabled", "true" if (xss and ss_url) else "false")
@@ -328,8 +367,15 @@ def apply_service_state(mqtt_enabled, sensors, xscreensaver=False):
         run(["sudo", "-n", "systemctl", "enable" if on else "disable", "--now", svc], timeout=20)
 
 
+def set_hostname(slug):
+    """Hostname that survives reboots (cloud-init re-applies the boot partition's user-data each boot)."""
+    name = slug[:63].strip("-") or "kiosk"
+    rc, out, err = run(["sudo", "-n", SET_HOSTNAME, name], timeout=15)
+    return rc == 0
+
+
 def finish_and_reboot(slug):
-    run(["sudo", "-n", "hostnamectl", "set-hostname", slug], timeout=10)
+    set_hostname(slug)
     PROVISIONED_MARKER.touch()
     log("Provisioning complete, rebooting.")
     run(["sudo", "-n", "systemctl", "reboot"], timeout=10)

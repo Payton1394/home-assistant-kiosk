@@ -73,14 +73,9 @@ def join_wifi(w, d):
     w.run(["nmcli", "radio", "wifi", "on"], timeout=15)
     msg = "not tried"
     for attempt in range(8):
-        if d.get("wifi_hidden"):
-            cmd = ["nmcli", "device", "wifi", "connect", ssid] + (["password", password] if password else []) + ["hidden", "yes"]
-            rc, out, err = w.run(cmd, timeout=45)
-            ok, msg = rc == 0, (err.strip() or out.strip())
-        else:
-            w.run(["nmcli", "device", "wifi", "rescan"], timeout=15)
-            time.sleep(3)
-            ok, msg = w.connect_wifi(ssid, password)
+        w.run(["nmcli", "device", "wifi", "rescan"], timeout=15)
+        time.sleep(3)
+        ok, msg = w.connect_wifi(ssid, password, hidden=bool(d.get("wifi_hidden")))
         if ok:
             return True, msg
         time.sleep(10)
@@ -169,7 +164,7 @@ def main():
     result(lines)
     shred(SETUP)
     # Same finish as the on-screen wizard (finish_and_reboot), with the marker owned by the kiosk user.
-    w.run(["hostnamectl", "set-hostname", slug], timeout=10)
+    w.set_hostname(slug)
     w.PROVISIONED_MARKER.touch()
     chown_kiosk(w.PROVISIONED_MARKER)
     w.log(f"Applied {SETUP} (web setup wizard) for {slug}; rebooting.")

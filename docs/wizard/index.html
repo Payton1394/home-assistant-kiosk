@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kiosk Setup Wizard · Home Assistant Kiosk</title>
+<meta name="description" content="Make a setup file for a Home Assistant Kiosk before you flash it. Runs entirely in your browser.">
+<link rel="icon" href="../images/logo.png">
+<link rel="stylesheet" href="wizard.css">
+</head>
+<body>
+<header class="top">
+  <img src="../images/logo.png" alt="" class="logo" width="56" height="56">
+  <div>
+    <h1>Kiosk Setup Wizard</h1>
+    <p class="sub">Answer these once, download <code>kiosk-setup.json</code>, drop it on the SD card. The kiosk sets itself up on first boot and goes straight to your dashboard.</p>
+  </div>
+</header>
+
+<main>
+  <section class="steps" aria-label="How it works">
+    <ol>
+      <li><strong>Flash</strong> the latest image from <a href="https://github.com/Payton1394/home-assistant-kiosk/releases/latest">Releases</a> with Raspberry Pi Imager or balenaEtcher.</li>
+      <li><strong>Fill in this page</strong> and download <code>kiosk-setup.json</code>.</li>
+      <li><strong>Copy the file</strong> to the SD card's <code>bootfs</code> drive (re-insert the card if the drive doesn't show), eject, and boot the kiosk.</li>
+    </ol>
+    <p class="privacy">Nothing you type leaves this page: the file is made in your browser. It holds your Wi-Fi and MQTT passwords until the kiosk reads it on first boot and deletes it. A short <code>kiosk-setup-result.txt</code> without passwords is left on <code>bootfs</code> so you can see what happened.</p>
+  </section>
+
+  <form id="wizard" novalidate>
+    <fieldset>
+      <legend>1. Device</legend>
+      <label for="device_name">Device name <span class="req">required</span></label>
+      <input id="device_name" required placeholder="Kitchen" autocomplete="off">
+      <p class="hint">Becomes the hostname and MQTT topic: <code id="slug_preview">kiosk/kiosk</code></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>2. Network</legend>
+      <label class="check"><input type="checkbox" id="skip_wifi"> Ethernet only (no Wi-Fi)</label>
+      <div id="wifi_fields">
+        <label for="wifi_ssid">Wi-Fi network name (SSID) <span class="req">required</span></label>
+        <input id="wifi_ssid" autocomplete="off" spellcheck="false">
+        <label for="wifi_password">Wi-Fi password</label>
+        <div class="pw"><input id="wifi_password" type="password" autocomplete="new-password"><button type="button" class="show" data-for="wifi_password">Show</button></div>
+        <label class="check"><input type="checkbox" id="wifi_hidden"> Hidden network</label>
+        <label for="wifi_country">Wi-Fi country (two letters)</label>
+        <input id="wifi_country" maxlength="2" value="US" class="short" autocomplete="off">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>3. Dashboard</legend>
+      <label for="dashboard_url">Home Assistant dashboard URL <span class="req">required</span></label>
+      <input id="dashboard_url" type="url" required placeholder="https://homeassistant.local:8123/lovelace/kitchen" spellcheck="false">
+      <label for="rotation">How is the screen mounted?</label>
+      <select id="rotation">
+        <option value="normal">Landscape</option>
+        <option value="right">Portrait (rotated right)</option>
+        <option value="left">Portrait (rotated left)</option>
+        <option value="inverted">Landscape (upside-down)</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>4. Screensaver <span class="opt">optional</span></legend>
+      <label for="screensaver_url">Screensaver URL</label>
+      <input id="screensaver_url" type="url" placeholder="Leave empty for no screensaver" spellcheck="false">
+      <div class="row">
+        <div><label for="screensaver_timeout">Screensaver after (seconds)</label><input id="screensaver_timeout" type="number" min="10" value="300"></div>
+        <div><label for="dpms_timeout">Screen off after (seconds)</label><input id="dpms_timeout" type="number" min="30" value="600"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>5. Home Assistant connection (MQTT) <span class="opt">optional</span></legend>
+      <p class="hint">Lets Home Assistant see and control the kiosk (brightness, screen, reboot, temperature, sensors) through the <code>ha_kiosk_panel</code> integration. Leave the broker empty to skip.</p>
+      <div class="row">
+        <div class="grow"><label for="mqtt_host">MQTT broker host</label><input id="mqtt_host" placeholder="homeassistant.local" spellcheck="false"></div>
+        <div><label for="mqtt_port">Port</label><input id="mqtt_port" type="number" value="1883" class="short"></div>
+      </div>
+      <div class="row">
+        <div><label for="mqtt_username">Username</label><input id="mqtt_username" autocomplete="off"></div>
+        <div><label for="mqtt_password">Password</label><div class="pw"><input id="mqtt_password" type="password" autocomplete="new-password"><button type="button" class="show" data-for="mqtt_password">Show</button></div></div>
+      </div>
+      <p class="label">Sensors wired to this kiosk (see <a href="https://github.com/Payton1394/home-assistant-kiosk/blob/main/HARDWARE.md">HARDWARE.md</a>)</p>
+      <label class="check"><input type="checkbox" id="sensor_c4001"> DFRobot C4001 mmWave presence sensor</label>
+      <label class="check"><input type="checkbox" id="sensor_rcwl"> RCWL-0516 motion sensor</label>
+      <label class="check"><input type="checkbox" id="sensor_lux"> BH1750 light sensor</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>6. Access <span class="opt">optional</span></legend>
+      <label for="terminal_password">New terminal / SSH password for the <code>kiosk</code> user</label>
+      <div class="pw"><input id="terminal_password" type="password" autocomplete="new-password" minlength="8"><button type="button" class="show" data-for="terminal_password">Show</button></div>
+      <p class="hint">Strongly recommended: the image ships with a published default password. At least 8 characters.</p>
+      <label for="ssh_pubkey">SSH public key</label>
+      <textarea id="ssh_pubkey" rows="2" placeholder="ssh-ed25519 AAAA… you@computer" spellcheck="false"></textarea>
+    </fieldset>
+
+    <details>
+      <summary>Advanced</summary>
+      <div class="row">
+        <div><label for="brightness_min">Brightness min (%)</label><input id="brightness_min" type="number" min="0" max="100" value="10"></div>
+        <div><label for="brightness_max">Brightness max (%)</label><input id="brightness_max" type="number" min="0" max="100" value="100"></div>
+      </div>
+      <label for="touch_device">Touch input device (id or name; leave empty to detect)</label>
+      <input id="touch_device" spellcheck="false">
+    </details>
+
+    <div id="errors" class="errors" role="alert" hidden></div>
+    <div class="actions">
+      <button type="submit" class="primary">Download kiosk-setup.json</button>
+      <span id="done" class="done" hidden>Downloaded. Copy it to the <code>bootfs</code> drive of the flashed card.</span>
+    </div>
+  </form>
+</main>
+
+<footer>
+  <p><a href="https://github.com/Payton1394/home-assistant-kiosk">Home Assistant Kiosk on GitHub</a> · Prefer to set up on the kiosk itself? Boot without a setup file and the on-screen wizard opens.</p>
+</footer>
+<script src="wizard.js"></script>
+</body>
+</html>

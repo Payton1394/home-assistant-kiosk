@@ -70,9 +70,18 @@ Full wiring diagrams, physical pin numbers, and the exact `config.txt` overlays 
 2. Flash it to your microSD card with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (**Choose OS → Use custom**, point it at the downloaded file) — this is the recommended tool; it verifies the write and handles `.xz` decompression automatically. Rufus and Win32DiskImager also work if you'd rather use something lighter than Etcher.
 3. Insert the card into the Pi, connect your display (and touchscreen, if using one) and power, and boot.
 
-### 2. Walk through the on-screen setup wizard
+### 2. Set it up: from your computer, or on the screen
 
-The wizard appears automatically on first boot — no SSH, no external keyboard/mouse needed, it has its own on-screen keyboard. It's eight steps, the last two collapsed by default:
+**Option A: the web setup wizard (no keyboard or touch needed).** Open the
+[**Kiosk Setup Wizard**](https://payton1394.github.io/home-assistant-kiosk/wizard/) on any computer or phone, fill in the same
+settings as below, and download `kiosk-setup.json`. After flashing, re-insert the card, copy the file onto the `bootfs`
+drive, eject and boot. On first boot the kiosk applies it (Wi-Fi, dashboard, MQTT, sensors, rotation, SSH key, password),
+deletes the file (it holds your passwords) and starts the dashboard. A `kiosk-setup-result.txt` without passwords is left on
+`bootfs` saying what was applied, or what went wrong (then the file stays and the on-screen wizard still opens).
+The page runs entirely in your browser; nothing you type is sent anywhere. Dropping a new `kiosk-setup.json` on the card later
+re-configures the kiosk the same way. Needs an image from v1.1.0 on.
+
+**Option B: the on-screen setup wizard.** Boot without a setup file and the wizard appears automatically on first boot — no SSH, no external keyboard/mouse needed, it has its own on-screen keyboard. It's eight steps, the last two collapsed by default:
 
 1. **Device** — a name (e.g. "Kitchen"). This becomes the hostname and the MQTT topic prefix (`kiosk/kitchen`).
 2. **Wi-Fi** — scans nearby networks, or check "already connected" if you're on Ethernet.
@@ -153,6 +162,7 @@ The "if MQTT/sensor configured" ones are installed disabled by default — the s
 build/
   kiosk_config.ini.example - generic config template (wizard fills this in)
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
+  scripts/kiosk-import-setup.py + systemd/kiosk-import-setup.service - applies kiosk-setup.json from bootfs on boot
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)
   systemd/                  - every unit file installed on the kiosk (see the service table above)
   scripts/                  - every script those units run (MQTT bridges, watchdogs, wizard support, splash);
@@ -161,6 +171,7 @@ build/
   sudoers.d/                - narrowly-scoped passwordless sudo for the wizard and the config MQTT bridge
 custom_components/
   ha_kiosk_panel/           - companion HACS integration (see above)
+docs/wizard/                - the web setup wizard (GitHub Pages), makes kiosk-setup.json in the browser
 docs/images/                - screenshots and logo used in this README
 HARDWARE.md                 - optional sensor wiring/pinouts (lux, C4001, RCWL-0516)
 README.md                   - this file

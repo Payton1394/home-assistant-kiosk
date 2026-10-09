@@ -37,7 +37,7 @@ publish_state() {
   local val="$1"
   mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" \
     -u "$MQTT_USER" -P "$MQTT_PASS" \
-    -t "$STATE_FULL_TOPIC" -m "$val"
+    -r -q 1 -t "$STATE_FULL_TOPIC" -m "$val"
 }
 
 get_brightness() {
@@ -55,16 +55,21 @@ set_brightness() {
   ddcutil setvcp 10 "$val" --display "$BR_DISP" >/dev/null 2>&1
 }
 
-cur=$(get_brightness)
-[ -n "$cur" ] && publish_state "$cur"
-
+# The level is published retained, so Home Assistant has it as soon as it
+# subscribes -- after its own restart too, not only after the next change --
+# and it is sent again every 5 minutes. A publish that fails (at boot the
+# network may not be up yet) is tried again on the next poll rather than
+# taken as sent.
 watch_brightness() {
-  local last="$cur"
+  local last="" sent=0 now ts
   while true; do
     now=$(get_brightness)
-    if [ -n "$now" ] && [ "$now" != "$last" ]; then
-      publish_state "$now"
-      last="$now"
+    ts=$(date +%s)
+    if [ -n "$now" ] && { [ "$now" != "$last" ] || [ $((ts - sent)) -ge 300 ]; }; then
+      if publish_state "$now"; then
+        last="$now"
+        sent=$ts
+      fi
     fi
     sleep 10
   done

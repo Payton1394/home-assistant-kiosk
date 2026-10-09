@@ -30,26 +30,38 @@ publish_state() {
   local state="$1"
   mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" \
     -u "$MQTT_USER" -P "$MQTT_PASS" \
-    -t "$STATE_FULL_TOPIC" -m "$state"
+    -r -q 1 -t "$STATE_FULL_TOPIC" -m "$state"
 }
 
-# State watcher using xset q. Already a self-healing poll loop (unlike the
-# screensaver watcher's original one-shot `--watch` subprocess), so it isn't
-# vulnerable to the same boot-race-then-silent-death bug - each iteration is
-# independent, a single failed `xset q` just gets picked up on the next pass.
+# State watcher using xset q. The state is published retained, so Home
+# Assistant has it as soon as it subscribes -- after its own restart too, not
+# only after the next change -- and it is sent again every 5 minutes. A
+# publish that fails (at boot the network may not be up yet) is tried again
+# on the next poll rather than taken as sent.
 watch_dpms() {
-  local last=""
+  local last="" sent=0 out cur now
+  # Until X is up xset q fails, which would read as ON.
+  while ! DISPLAY=:0 xset q >/dev/null 2>&1; do
+    sleep 1
+  done
   while true; do
     out=$(DISPLAY=:0 xset q 2>/dev/null)
+    if [ -z "$out" ]; then
+      sleep 2
+      continue
+    fi
     if echo "$out" | grep -q "Monitor is Off"; then
       cur="OFF"
     else
       cur="ON"
     fi
 
-    if [ "$cur" != "$last" ]; then
-      publish_state "$cur"
-      last="$cur"
+    now=$(date +%s)
+    if [ "$cur" != "$last" ] || [ $((now - sent)) -ge 300 ]; then
+      if publish_state "$cur"; then
+        last="$cur"
+        sent=$now
+      fi
     fi
 
     sleep 2

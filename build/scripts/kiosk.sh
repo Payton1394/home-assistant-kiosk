@@ -42,13 +42,15 @@ while true; do
   chromium \
     --kiosk "$URL" \
     --noerrdialogs \
+    --autoplay-policy=no-user-gesture-required \
+    --use-fake-ui-for-media-stream \
     --disable-infobars \
     --enable-smooth-scrolling \
     --enable-accelerated-2d-canvas \
     --force-gpu-rasterization \
     --disable-pinch \
     --ignore-gpu-blocklist \
-    --use-gl=egl \
+    --disable-gpu-vsync \
     --disable-session-crashed-bubble \
     --disable-features=TranslateUI \
     --load-extension="$EXT_DIR" \

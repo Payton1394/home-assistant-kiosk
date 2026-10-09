@@ -185,6 +185,7 @@ README.md                   - this file
 - **Default login**: the `kiosk` user ships with the password `ChangeMe-Kiosk1!` for local terminal/SSH access — set your own during first-boot setup (wizard step 7, "Remote access") or later via `kiosk-reconfigure`. Change this before the device touches any network you care about.
 - No SSH keys, Wi-Fi passwords, or MQTT credentials are baked into the image — everything is entered fresh through the wizard on first boot.
 - The wizard's local HTTP server binds to `127.0.0.1` only; it's reachable exclusively from the kiosk's own Chromium on the kiosk's own screen, never over the network.
+- Chromium starts with `--use-fake-ui-for-media-stream` and `--autoplay-policy=no-user-gesture-required`, so the dashboard can use the microphone (intercom, voice) and play sounds (doorbell chimes) without anyone tapping the screen. The kiosk only opens the dashboard URL you configure, but any page it shows gets the same rights: point it only at your own Home Assistant.
 - SSH access is opt-in: paste a public key into the wizard's "Remote access" section, or manage `~/.ssh/authorized_keys` yourself.
 - The `kiosk` user has a narrowly-scoped `sudoers.d` rule (Wi-Fi, hostname, specific systemd units, reboot, changing the terminal password) rather than blanket sudo — see `build/sudoers.d/kiosk-wizard` for the exact rule and rationale.
 

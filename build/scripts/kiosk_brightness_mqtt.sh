@@ -13,8 +13,8 @@ ini_read() {
       exit
     }' "$file"
 }
-# Wait for XScreenSaver to be reachable
-while ! DISPLAY=:0 xscreensaver-command -time >/dev/null 2>&1; do
+# Wait for the X display (xscreensaver is optional, so don't wait for it)
+while ! DISPLAY=:0 xset q >/dev/null 2>&1; do
   sleep 1
 done
 

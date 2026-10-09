@@ -18,6 +18,8 @@ command_topic = screensaver/set
 state_topic = screensaver/state
 enabled = false
 url =
+# true = use xscreensaver as the screensaver (installed on demand by the setup wizard; the image ships without it)
+xscreensaver = false
 
 [dpms]
 command_topic = dpms/set

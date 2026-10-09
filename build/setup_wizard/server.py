@@ -30,7 +30,6 @@ CORE_MQTT_SERVICES = [
     "kiosk_brightness_mqtt.service",
     "kiosk-dpms-mqtt.service",
     "kiosk-reboot-mqtt.service",
-    "kiosk-screensaver-mqtt.service",
     "rpi-temp-mqtt.service",
     "kiosk-config-mqtt.service",
 ]
@@ -43,6 +42,13 @@ SENSOR_SERVICES = {
     "c4001": "c4001_presence.service",
     "rcwl": "rcwl-presence.service",
 }
+
+
+# Screensaver on/off over MQTT drives xscreensaver, which is opt-in: the image
+# ships without it and ensure_xscreensaver() installs it when the user ticks
+# "Use the built-in screensaver" (on-screen or web setup wizard).
+XSCREENSAVER_MQTT_SERVICE = "kiosk-screensaver-mqtt.service"
+INSTALL_XSCREENSAVER = "/usr/local/sbin/kiosk-install-xscreensaver.sh"
 
 
 def log(msg):
@@ -131,6 +137,7 @@ def read_current_config():
         "device_name": "",
         "dashboard_url": "",
         "screensaver_url": "",
+        "xscreensaver": False,
         "rotation": "normal",
         "touch_device": "",
         "brightness_min": 10,
@@ -157,6 +164,7 @@ def read_current_config():
     result["brightness_min"] = get("kiosk", "brightness_min", "10")
     result["brightness_max"] = get("kiosk", "brightness_max", "100")
     result["screensaver_url"] = get("screensaver", "url")
+    result["xscreensaver"] = get("screensaver", "xscreensaver", "false").lower() == "true"
     result["screensaver_timeout"] = get("screensaver", "timeout_seconds", "300")
     result["dpms_timeout"] = get("screensaver", "dpms_off_seconds", "600")
     result["rotation"] = get("display", "rotation", "normal")
@@ -205,11 +213,13 @@ def write_config(data):
     cfg.set("kiosk", "brightness_max", str(data.get("brightness_max") or 100))
 
     ss_url = (data.get("screensaver_url") or "").strip()
+    xss = bool(data.get("xscreensaver"))
+    cfg.set("screensaver", "xscreensaver", "true" if xss else "false")
     cfg.set("screensaver", "timeout_seconds", str(data.get("screensaver_timeout") or 300))
     cfg.set("screensaver", "dpms_off_seconds", str(data.get("dpms_timeout") or 600))
     cfg.set("screensaver", "command_topic", "screensaver/set")
     cfg.set("screensaver", "state_topic", "screensaver/state")
-    cfg.set("screensaver", "enabled", "true" if ss_url else "false")
+    cfg.set("screensaver", "enabled", "true" if (xss and ss_url) else "false")
     cfg.set("screensaver", "url", ss_url)
 
     cfg.set("dpms", "command_topic", "dpms/set")
@@ -290,10 +300,28 @@ def set_terminal_password(password):
         log("Failed to change terminal password (see rc/stderr above).")
 
 
-def apply_service_state(mqtt_enabled, sensors):
+def xscreensaver_installed():
+    return Path("/usr/bin/xscreensaver").exists()
+
+
+def ensure_xscreensaver(wanted):
+    """Installs xscreensaver when the user asked for the built-in screensaver and
+    the image doesn't have it (it ships without). Needs internet. Returns
+    (ok, message); never removes it again."""
+    if not wanted or xscreensaver_installed():
+        return True, "not needed" if not wanted else "already installed"
+    rc, out, err = run(["sudo", "-n", INSTALL_XSCREENSAVER], timeout=900)
+    ok = rc == 0 and xscreensaver_installed()
+    log(f"xscreensaver install: rc={rc} {(err or out).strip()[:200]}")
+    return ok, (out.strip() or err.strip() or ("installed" if ok else "install failed"))
+
+
+def apply_service_state(mqtt_enabled, sensors, xscreensaver=False):
     for svc in CORE_MQTT_SERVICES:
         action = "enable" if mqtt_enabled else "disable"
         run(["sudo", "-n", "systemctl", action, "--now", svc], timeout=20)
+    on = mqtt_enabled and xscreensaver and xscreensaver_installed()
+    run(["sudo", "-n", "systemctl", "enable" if on else "disable", "--now", XSCREENSAVER_MQTT_SERVICE], timeout=20)
 
     for key, svc in SENSOR_SERVICES.items():
         on = mqtt_enabled and bool(sensors.get(key))
@@ -391,8 +419,14 @@ class Handler(BaseHTTPRequestHandler):
                         self._json({"ok": False, "errors": [f"Could not join '{ssid}': {msg}"]}, 400)
                         return
 
+                if data.get("xscreensaver"):
+                    ok, msg = ensure_xscreensaver(True)
+                    if not ok:
+                        # Not fatal: save everything else, leave the screensaver off.
+                        log(f"Built-in screensaver requested but xscreensaver could not be installed: {msg}")
+                        data["xscreensaver"] = False
                 mqtt_enabled, sensors, slug = write_config(data)
-                apply_service_state(mqtt_enabled, sensors)
+                apply_service_state(mqtt_enabled, sensors, bool(data.get("xscreensaver")))
                 apply_boot_rotation(data.get("rotation") or "normal")
                 add_ssh_key(data.get("ssh_pubkey"))
                 set_terminal_password(new_password)

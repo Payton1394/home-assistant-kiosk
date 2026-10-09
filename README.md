@@ -87,7 +87,7 @@ re-configures the kiosk the same way. Needs an image from v1.1.0 on.
 2. **Wi-Fi** — scans nearby networks, or check "already connected" if you're on Ethernet.
 3. **Dashboard** — the URL of the Home Assistant dashboard you want shown fullscreen.
 4. **Screen orientation** — normal/right/left/inverted; handles display rotation, touch alignment, console, and the boot splash together.
-5. **Screensaver** *(optional)* — a URL to show when idle (e.g. a photo slideshow server).
+5. **Screensaver** *(optional)* — tick **Use the built-in screensaver** to get xscreensaver showing a URL when idle (e.g. a photo slideshow server). The image ships without xscreensaver; ticking this installs it (needs internet). Leave it unticked if your dashboard has its own screensaver: nothing of xscreensaver is installed, and the screen still turns off after the timeout set under Advanced.
 6. **MQTT & smart features** *(optional — leave the broker field blank to run as a plain browser kiosk)* — broker host/port/credentials, plus checkboxes for whichever optional sensors you've actually wired up (see [Optional sensors](#optional-sensors)).
 7. **Remote access** — set a real SSH/terminal password (the image ships with a documented default, `ChangeMe-Kiosk1!` for user `kiosk`, worth changing before this touches a network you care about) and/or paste an SSH public key for passwordless access.
 8. **Advanced** *(optional)* — touch input device override (auto-detected normally, only needed if that fails), brightness min/max, screensaver/screen-off timeouts.
@@ -141,7 +141,7 @@ Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) 
 | `kiosk-net-watchdog.timer` → `.service` | Yes (every 1 min) | After 2 consecutive failed gateway pings, restarts `NetworkManager` (cooldown-limited). A different, complementary recovery path from the watchdog above — this one targets a stuck NetworkManager/association rather than the interface itself. |
 | `kiosk-net-logger.timer` → `.service` | Yes (every 2 min) | Appends a network/throttle diagnostic snapshot to `~/kiosk-net.log` whenever a gateway ping fails or the Pi's throttle status changes — for after-the-fact debugging, not corrective action. |
 | `kiosk-config-mqtt.service` | If MQTT configured | Dashboard/screensaver URL + screensaver timeout as MQTT command/state topics, plus the identity/availability payload the HA integration's auto-discovery relies on. See [kiosk_config_mqtt.py](build/scripts/kiosk_config_mqtt.py). |
-| `kiosk-screensaver-mqtt.service` | If MQTT configured | Screensaver on/off via MQTT, backed by `xscreensaver-command`. |
+| `kiosk-screensaver-mqtt.service` | If MQTT configured and the built-in screensaver is on | Screensaver on/off via MQTT, backed by `xscreensaver-command`. |
 | `kiosk-dpms-mqtt.service` | If MQTT configured | Display power on/off via MQTT, backed by `xset dpms`. |
 | `kiosk_brightness_mqtt.service` | If MQTT configured | Backlight brightness via MQTT, backed by `ddcutil` (requires a DDC/CI-capable monitor). |
 | `kiosk-reboot-mqtt.service` | If MQTT configured | Reboots the Pi on an MQTT command. |
@@ -163,6 +163,8 @@ build/
   kiosk_config.ini.example - generic config template (wizard fills this in)
   setup_wizard/             - the first-boot wizard (Python stdlib server + HTML/CSS/JS)
   scripts/kiosk-import-setup.py + systemd/kiosk-import-setup.service - applies kiosk-setup.json from bootfs on boot
+  scripts/kiosk-install-xscreensaver.sh - installs xscreensaver on demand (opt-in; not shipped in the image)
+  home/xinitrc              - the kiosk user's X session (~/.xinitrc): starts xscreensaver only when opted in
   keyboard_extension/       - Chromium extension: on-screen keyboard on every page (wizard + dashboard)
   systemd/                  - every unit file installed on the kiosk (see the service table above)
   scripts/                  - every script those units run (MQTT bridges, watchdogs, wizard support, splash);

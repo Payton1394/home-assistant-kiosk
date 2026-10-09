@@ -141,8 +141,19 @@ def main():
             return 1
         lines.append(f"Wi-Fi: joined '{data['wifi_ssid']}'.")
 
+    # xscreensaver is not in the image: install it only when the built-in screensaver was ticked.
+    if data.get("xscreensaver"):
+        ok, msg = w.ensure_xscreensaver(True)
+        if ok:
+            lines.append("Screensaver: built-in screensaver (xscreensaver) installed and on.")
+        else:
+            data["xscreensaver"] = False
+            lines.append(f"Screensaver: xscreensaver could not be installed ({msg}); screensaver left off.")
+    else:
+        lines.append("Screensaver: off (xscreensaver not installed).")
+
     mqtt_enabled, sensors, slug = w.write_config(data)
-    w.apply_service_state(mqtt_enabled, sensors)
+    w.apply_service_state(mqtt_enabled, sensors, bool(data.get("xscreensaver")))
     w.apply_boot_rotation(data.get("rotation") or "normal")
     w.add_ssh_key(data.get("ssh_pubkey"))
     w.set_terminal_password(data.get("terminal_password") or "")

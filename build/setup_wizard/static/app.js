@@ -203,6 +203,7 @@
       set("device_name", d.device_name);
       set("dashboard_url", d.dashboard_url);
       set("screensaver_url", d.screensaver_url);
+      document.getElementById("xscreensaver").checked = !!d.xscreensaver;
       set("rotation", d.rotation);
       set("touch_device", d.touch_device);
       set("brightness_min", d.brightness_min);
@@ -275,6 +276,7 @@
       device_name: val("device_name"),
       dashboard_url: val("dashboard_url"),
       screensaver_url: val("screensaver_url"),
+      xscreensaver: document.getElementById("xscreensaver").checked,
       skip_wifi: skipWifi.checked,
       wifi_ssid: selectedSSID || manualSSID.value.trim(),
       wifi_password: document.getElementById("wifi_password").value,

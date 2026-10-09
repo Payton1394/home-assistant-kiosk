@@ -68,8 +68,13 @@
 
     <section>
       <h2>5. Screensaver <span class="optional">(optional)</span></h2>
+      <label class="checkbox-row">
+        <input type="checkbox" id="xscreensaver" name="xscreensaver">
+        <span>Use the built-in screensaver (xscreensaver, installed over the internet when you save)</span>
+      </label>
       <label for="screensaver_url">Screensaver URL</label>
-      <input type="url" id="screensaver_url" name="screensaver_url" placeholder="Leave blank to disable">
+      <input type="url" id="screensaver_url" name="screensaver_url" placeholder="Shown when the screensaver starts">
+      <p class="hint">Leave the box unticked if your dashboard has its own screensaver, or you don't want one. The screen still turns off after the time set under Advanced.</p>
     </section>
 
     <details class="adv">

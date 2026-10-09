@@ -20,3 +20,4 @@ kiosk ALL=(root) NOPASSWD: /usr/local/sbin/set-boot-rotation.py
 # reboot - restarting the chromium kiosk service picks up the new URL from
 # kiosk_config.ini on its next launch.
 kiosk ALL=(root) NOPASSWD: /usr/bin/systemctl --no-block restart kiosk.service
+kiosk ALL=(root) NOPASSWD: /usr/local/sbin/kiosk-install-xscreensaver.sh

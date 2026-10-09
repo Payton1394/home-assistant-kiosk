@@ -9,6 +9,7 @@
 
   $('device_name').addEventListener('input', () => { $('slug_preview').textContent = 'kiosk/' + slugify($('device_name').value); });
   $('skip_wifi').addEventListener('change', () => { $('wifi_fields').hidden = $('skip_wifi').checked; });
+  $('xscreensaver').addEventListener('change', () => { const on = $('xscreensaver').checked; $('xss_fields').hidden = !on; $('xss_timeout').hidden = !on; });
   document.querySelectorAll('button.show').forEach(b => b.addEventListener('click', () => {
     const f = $(b.dataset.for); const show = f.type === 'password';
     f.type = show ? 'text' : 'password'; b.textContent = show ? 'Hide' : 'Show';
@@ -20,9 +21,10 @@
       version: 1,
       device_name: val('device_name'),
       dashboard_url: val('dashboard_url'),
-      screensaver_url: val('screensaver_url'),
+      xscreensaver: $('xscreensaver').checked,
+      screensaver_url: $('xscreensaver').checked ? val('screensaver_url') : '',
       screensaver_timeout: val('screensaver_timeout') || '300',
-      dpms_timeout: val('dpms_timeout') || '600',
+      dpms_timeout: val('dpms_timeout') === '' ? '600' : val('dpms_timeout'),
       rotation: $('rotation').value,
       touch_device: val('touch_device'),
       brightness_min: val('brightness_min') || '10',
@@ -43,7 +45,7 @@
     const e = [];
     if (!d.device_name) e.push(['device_name', 'Give the kiosk a name, for example Kitchen.']);
     if (!/^https?:\/\/\S+$/.test(d.dashboard_url)) e.push(['dashboard_url', 'The dashboard URL must start with http:// or https://.']);
-    if (d.screensaver_url && !/^https?:\/\/\S+$/.test(d.screensaver_url)) e.push(['screensaver_url', 'The screensaver URL must start with http:// or https://, or be empty.']);
+    if (d.xscreensaver && !/^https?:\/\/\S+$/.test(d.screensaver_url)) e.push(['screensaver_url', 'Enter the screensaver URL (http:// or https://), or untick the built-in screensaver.']);
     if (!d.skip_wifi && !d.wifi_ssid) e.push(['wifi_ssid', 'Enter the Wi-Fi network name, or tick "Ethernet only".']);
     if (d.wifi_country && !/^[A-Z]{2}$/.test(d.wifi_country)) e.push(['wifi_country', 'Wi-Fi country is two letters, for example US or GB.']);
     if (d.terminal_password && d.terminal_password.length < 8) e.push(['terminal_password', 'The new terminal password needs at least 8 characters.']);

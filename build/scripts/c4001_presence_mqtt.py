@@ -86,7 +86,7 @@ def open_serial(dev, baud):
 
 
 def open_mqtt(cfg):
-    client = mqtt.Client(client_id="kiosk_c4001")
+    client = mqtt.Client(client_id="c4001_" + cfg["presence_topic"].replace("/", "_"))   # unique per kiosk (a shared id made every kiosk kick the others off the broker)
     if cfg["mqtt_user"]:
         client.username_pw_set(cfg["mqtt_user"], cfg["mqtt_pass"])
     client.connect(cfg["mqtt_host"], cfg["mqtt_port"], 60)

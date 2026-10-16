@@ -56,7 +56,7 @@ Each is independently toggled in the setup wizard, and each just needs an MQTT b
 
 | Sensor | What it adds | Interface |
 |---|---|---|
-| BH1750 ambient light (GY-302 breakout) | Lux reading, for lux-based brightness automations | I2C |
+| VEML7700 (recommended) or BH1750 ambient light | Lux reading, for lux-based brightness automations | I2C |
 | C4001 mmWave presence | Presence + distance | UART (Pi 5 only as shipped — see above) |
 | RCWL-0516 radar presence | Presence (on/off only, no distance) | GPIO (Pi 5 line-offset as shipped — see above) |
 
@@ -146,7 +146,7 @@ Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) 
 | `kiosk_brightness_mqtt.service` | If MQTT configured | Backlight brightness via MQTT, backed by `ddcutil` (requires a DDC/CI-capable monitor). |
 | `kiosk-reboot-mqtt.service` | If MQTT configured | Reboots the Pi on an MQTT command. |
 | `rpi-temp-mqtt.service` | If MQTT configured | Publishes CPU temperature every 30s (`vcgencmd measure_temp`). |
-| `kiosk-lux-mqtt.service` | If lux sensor enabled | Ambient light level from a BH1750 (GY-302) sensor over I2C. |
+| `kiosk-lux-mqtt.service` | If lux sensor enabled | Ambient light level from a VEML7700 or BH1750 sensor over I2C (whichever is fitted). |
 | `c4001_presence.service` | If C4001 sensor enabled | Presence (and, depending on sensor mode, distance) from a DFRobot C4001 mmWave sensor over UART. Manual tuning tools live in [build/scripts/c4001-tools/](build/scripts/c4001-tools/). |
 | `rcwl-presence.service` | If RCWL sensor enabled | Presence from an RCWL-0516 microwave radar sensor over GPIO. |
 

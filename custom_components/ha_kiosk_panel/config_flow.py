@@ -21,15 +21,24 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
+    AUDIO_BROWSER,
+    AUDIO_MPD,
+    CONF_AUDIO,
     CONF_BASE_TOPIC,
     CONF_HOST,
     CONF_MPD_PORT,
+    DEFAULT_AUDIO,
     DEFAULT_BASE_TOPIC_PREFIX,
     DEFAULT_MPD_PORT,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+AUDIO_CHOICES = {
+    AUDIO_MPD: "MPD on the kiosk",
+    AUDIO_BROWSER: "The dashboard page (Chromium, via the Scarth Wall Panel add-on)",
+}
 
 
 class KioskPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -126,7 +135,9 @@ class KioskPanelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class KioskPanelOptionsFlow(config_entries.OptionsFlow):
-    """Lets host/MPD port be corrected later (e.g. after a DHCP lease change)."""
+    """Picks what the media player plays through (MPD on the kiosk, or its
+    dashboard page), and lets host/MPD port be corrected later (e.g. after a
+    DHCP lease change)."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
@@ -137,10 +148,13 @@ class KioskPanelOptionsFlow(config_entries.OptionsFlow):
             new_data[CONF_HOST] = user_input[CONF_HOST].strip()
             new_data[CONF_MPD_PORT] = user_input[CONF_MPD_PORT]
             self.hass.config_entries.async_update_entry(self._entry, data=new_data)
-            return self.async_create_entry(title="", data={})
+            return self.async_create_entry(title="", data={CONF_AUDIO: user_input[CONF_AUDIO]})
 
         schema = vol.Schema(
             {
+                vol.Required(
+                    CONF_AUDIO, default=self._entry.options.get(CONF_AUDIO, DEFAULT_AUDIO)
+                ): vol.In(AUDIO_CHOICES),
                 vol.Required(CONF_HOST, default=self._entry.data[CONF_HOST]): str,
                 vol.Required(
                     CONF_MPD_PORT, default=self._entry.data[CONF_MPD_PORT]

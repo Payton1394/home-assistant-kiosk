@@ -30,10 +30,14 @@
     "step": {
       "init": {
         "title": "Kiosk Panel options",
-        "description": "Update the kiosk's IP address if it has changed (e.g. after a DHCP lease renewal).",
+        "description": "Choose what the media player plays through, and update the kiosk's IP address if it has changed (e.g. after a DHCP lease renewal).",
         "data": {
+          "audio": "Audio player",
           "host": "Kiosk IP address (for MPD)",
           "mpd_port": "MPD port"
+        },
+        "data_description": {
+          "audio": "MPD on the kiosk, or the kiosk's dashboard page (for a kiosk running the Scarth Wall Panel dashboard with MPD turned off). The IP address and MPD port only matter for MPD."
         }
       }
     }

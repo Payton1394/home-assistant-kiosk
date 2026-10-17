@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import json
+import queue
+import re
 import time
 import statistics
 import serial
@@ -14,6 +17,27 @@ CONFIG_PATH = Path("/home/kiosk/kiosk_config.ini")  # adjust if needed
 # "present" frames before firing ON, but the sensor is noisy enough on initial
 # acquisition (flag flickers 1/0/1) that this was delaying detection significantly.
 
+# Tuning from Home Assistant (2026-10-17): the sensor's presence-mode settings
+# are Home Assistant number entities (MQTT discovery, one device per kiosk,
+# "<Room> Kiosk Presence"). A change arrives on <base>/presence/tuning/<key>/set;
+# the main loop stops the sensor, sends the setting, saves it to the sensor's
+# flash, reads every setting back and starts it again (about three seconds with
+# no frames), then publishes what the sensor now holds as JSON on
+# <base>/presence/tuning/state. Commands and their order are DFRobot's C4001
+# manual: setRange <min m> <max m>, setTrigRange <m>, setSensitivity <hold 0-9>
+# <trigger 0-9>, setLatency <confirm s> <clear s>, saveConfig, sensorStart; each
+# answered "Done" or "Error", a get* with "Response <values>".
+TUNABLES = [
+    # key, name, min, max, step, unit, icon
+    ("max_range", "Detection distance", 1.0, 12.0, 0.1, "m", "mdi:signal-distance-variant"),
+    ("trig_range", "Trigger distance", 0.6, 12.0, 0.1, "m", "mdi:ray-start-arrow"),
+    ("trig_sens", "Trigger sensitivity", 0, 9, 1, None, "mdi:tune-vertical"),
+    ("hold_sens", "Hold sensitivity", 0, 9, 1, None, "mdi:tune-vertical-variant"),
+    ("confirm_delay", "Confirmation delay", 0.0, 5.0, 0.05, "s", "mdi:timer-sand"),
+    ("clear_delay", "Clear after", 1, 600, 1, "s", "mdi:timer-off-outline"),
+]
+LIMITS = {k: (lo, hi) for k, _n, lo, hi, _s, _u, _i in TUNABLES}
+
 
 def load_config():
     cfg = configparser.ConfigParser()
@@ -26,6 +50,12 @@ def load_config():
 
     m = cfg["mqtt"]
     c = cfg["c4001"]
+
+    k = cfg["kiosk"] if "kiosk" in cfg else {}
+    panel = (k.get("panel_name") or "").strip()
+    ha_name = c.get("ha_name", fallback=panel.replace("-", " ").title() or "Kiosk")
+    discovery_prefix = c.get("discovery_prefix", fallback="homeassistant")
+    tuning = c.getboolean("tuning", fallback=True)
 
     mqtt_host = m.get("host", "127.0.0.1")
     mqtt_port = m.getint("port", fallback=1883)
@@ -64,6 +94,10 @@ def load_config():
     distance_topic = f"{base_topic}/{distance_suffix}".rstrip("/")
 
     return {
+        "base_topic": base_topic.rstrip("/"),
+        "ha_name": ha_name,
+        "discovery_prefix": discovery_prefix,
+        "tuning": tuning,
         "mqtt_host": mqtt_host,
         "mqtt_port": mqtt_port,
         "mqtt_user": mqtt_user,
@@ -85,19 +119,161 @@ def open_serial(dev, baud):
     return serial.Serial(dev, baudrate=baud, timeout=1)
 
 
-def open_mqtt(cfg):
+# ---- the sensor's command line ------------------------------------------------
+
+def transact(ser, cmd, timeout=2.5):
+    """Send one command; return its answer lines (frames skipped) up to Done/Error."""
+    ser.write((cmd + "\r\n").encode("ascii"))
+    ser.flush()
+    lines, end = [], time.time() + timeout
+    while time.time() < end:
+        raw = ser.readline()
+        if not raw:
+            continue
+        s = raw.decode("ascii", errors="ignore").strip()
+        if not s or s.startswith("$DF") or s.startswith("DFRobot:"):
+            continue
+        lines.append(s)
+        if s in ("Done", "Error"):
+            break
+    return lines
+
+
+def response(lines):
+    for s in lines:
+        m = re.match(r"Response\s+(.*)", s)
+        if m:
+            try:
+                return [float(x) for x in m.group(1).split()]
+            except ValueError:
+                return None
+    return None
+
+
+def stop_sensor(ser):
+    for _ in range(5):
+        if "Done" in transact(ser, "sensorStop", 3.0):
+            return True
+        time.sleep(0.4)
+    return False
+
+
+def read_settings(ser):
+    """What the (stopped) sensor holds, in TUNABLES' keys."""
+    out = {}
+    r = response(transact(ser, "getRange"))
+    if r and len(r) >= 2:
+        out["min_range"], out["max_range"] = round(r[0], 2), round(r[1], 2)
+    r = response(transact(ser, "getTrigRange"))
+    if r:
+        out["trig_range"] = round(r[0], 2)
+    r = response(transact(ser, "getSensitivity"))
+    if r and len(r) >= 2:
+        out["hold_sens"], out["trig_sens"] = int(r[0]), int(r[1])
+    r = response(transact(ser, "getLatency"))
+    if r and len(r) >= 2:
+        out["confirm_delay"], out["clear_delay"] = round(r[0], 3), round(r[1], 1)
+    return out
+
+
+def apply_settings(ser, current, changes):
+    """Stop, set what changed, save, read back, start. Returns (settings, ok)."""
+    want = {**current, **changes}
+    for key, (lo, hi) in LIMITS.items():
+        if key in want:
+            want[key] = max(lo, min(hi, want[key]))
+    min_range = want.get("min_range", 0.6)
+    want["max_range"] = max(want.get("max_range", 6.0), min_range + 0.1)
+    want["trig_range"] = min(want.get("trig_range", want["max_range"]), want["max_range"])
+    ok = stop_sensor(ser)
+    sent = []
+    if ok and ({"max_range", "trig_range"} & changes.keys()):
+        sent += [f"setRange {min_range:.1f} {want['max_range']:.1f}", f"setTrigRange {want['trig_range']:.1f}"]
+    if ok and ({"trig_sens", "hold_sens"} & changes.keys()):
+        sent.append(f"setSensitivity {int(round(want.get('hold_sens', 7)))} {int(round(want.get('trig_sens', 5)))}")
+    if ok and ({"confirm_delay", "clear_delay"} & changes.keys()):
+        sent.append(f"setLatency {want.get('confirm_delay', 0.5):.2f} {want.get('clear_delay', 15):.1f}")
+    for cmd in sent:
+        if "Done" not in transact(ser, cmd):
+            ok = False
+            print(f"c4001: {cmd!r} was refused", flush=True)
+    if sent:
+        transact(ser, "saveConfig", 3.0)
+    settings = read_settings(ser) or current
+    transact(ser, "sensorStart", 3.0)
+    return settings, ok
+
+
+def open_mqtt(cfg, commands):
     client = mqtt.Client(client_id="c4001_" + cfg["presence_topic"].replace("/", "_"))   # unique per kiosk (a shared id made every kiosk kick the others off the broker)
     if cfg["mqtt_user"]:
         client.username_pw_set(cfg["mqtt_user"], cfg["mqtt_pass"])
+    base = cfg["base_topic"]
+    avail = f"{base}/presence/tuning/available"
+    if cfg["tuning"]:
+        client.will_set(avail, "offline", qos=1, retain=True)
+
+    def on_connect(c, _userdata, _flags, rc, *_):
+        if not cfg["tuning"]:
+            return
+        c.subscribe(f"{base}/presence/tuning/+/set", qos=1)
+        publish_discovery(c, cfg)
+        c.publish(avail, "online", qos=1, retain=True)
+        commands.put(("refresh", None, None))   # (re)send the state after a reconnect
+
+    def on_message(_c, _userdata, msg):
+        parts = msg.topic.split("/")
+        key = parts[-2] if len(parts) >= 2 else ""
+        if key not in LIMITS:
+            return
+        try:
+            value = float(msg.payload.decode().strip())
+        except ValueError:
+            return
+        commands.put(("set", key, value))
+
+    client.on_connect = on_connect
+    client.on_message = on_message
     client.connect(cfg["mqtt_host"], cfg["mqtt_port"], 60)
     client.loop_start()
     return client
 
 
+def publish_discovery(client, cfg):
+    """One Home Assistant number per setting, on a "<Room> Kiosk Presence" device."""
+    base = cfg["base_topic"]
+    node = base.replace("/", "_").replace("-", "_") + "_c4001"
+    device = {"identifiers": [node], "name": f"{cfg['ha_name']} Kiosk Presence",
+              "manufacturer": "DFRobot", "model": "C4001 mmWave"}
+    for key, name, lo, hi, step, unit, ico in TUNABLES:
+        payload = {
+            "name": name, "unique_id": f"{node}_{key}", "icon": ico,
+            "command_topic": f"{base}/presence/tuning/{key}/set",
+            "state_topic": f"{base}/presence/tuning/state",
+            "value_template": "{{ value_json.%s }}" % key,
+            "availability_topic": f"{base}/presence/tuning/available",
+            "min": lo, "max": hi, "step": step, "mode": "slider",
+            "entity_category": "config", "device": device,
+        }
+        if unit:
+            payload["unit_of_measurement"] = unit
+        client.publish(f"{cfg['discovery_prefix']}/number/{node}/{key}/config", json.dumps(payload), qos=1, retain=True)
+
+
 def main():
     cfg = load_config()
     ser = open_serial(cfg["uart_device"], cfg["baud"])
-    mqttc = open_mqtt(cfg)
+    commands = queue.Queue()
+    mqttc = open_mqtt(cfg, commands)
+    tuning_topic = f"{cfg['base_topic']}/presence/tuning/state"
+    settings = {}
+    if cfg["tuning"]:
+        # What the sensor holds now: stop, read, start (a moment without frames).
+        stop_sensor(ser)
+        settings = read_settings(ser)
+        transact(ser, "sensorStart", 3.0)
+        mqttc.publish(tuning_topic, json.dumps(settings), qos=1, retain=True)
+        print(f"c4001: settings {settings}", flush=True)
 
     # Explicitly clear presence on startup. Without this, a restart (service
     # crash, redeploy, manual restart) leaves whatever was last retained on
@@ -121,6 +297,25 @@ def main():
     last_dist_published = None
 
     while True:
+        # Settings from Home Assistant: everything waiting, applied in one go.
+        changes, refresh = {}, False
+        while True:
+            try:
+                kind, key, value = commands.get_nowait()
+            except queue.Empty:
+                break
+            if kind == "set":
+                changes[key] = value
+            else:
+                refresh = True
+        if changes:
+            settings, ok = apply_settings(ser, settings, changes)
+            print(f"c4001: {changes} -> {settings}{'' if ok else ' (not all applied)'}", flush=True)
+            if last_state == "ON":
+                last_present_ts = time.time()   # the pause was ours, not someone leaving
+        if changes or refresh:
+            mqttc.publish(tuning_topic, json.dumps(settings), qos=1, retain=True)
+
         now = time.time()
         line = ser.readline()
 

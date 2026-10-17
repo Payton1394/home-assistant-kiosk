@@ -18,8 +18,12 @@ CONFIG_PATH = Path("/home/kiosk/kiosk_config.ini")  # adjust if needed
 # acquisition (flag flickers 1/0/1) that this was delaying detection significantly.
 
 # Tuning from Home Assistant (2026-10-17): the sensor's presence-mode settings
-# are Home Assistant number entities (MQTT discovery, one device per kiosk,
-# "<Room> Kiosk Presence"). A change arrives on <base>/presence/tuning/<key>/set;
+# are Home Assistant number entities on the kiosk's own device, made by the
+# ha_kiosk_panel integration (0.4.0+, custom_components in this repo) from the
+# topics below. Without that integration, `[c4001] ha_discovery = true` makes
+# them by MQTT discovery instead (a "<Room> Kiosk Presence" device); with it off
+# (the default) the discovery entries are cleared, so the two never double up.
+# A change arrives on <base>/presence/tuning/<key>/set;
 # the main loop stops the sensor, sends the setting, saves it to the sensor's
 # flash, reads every setting back and starts it again (about three seconds with
 # no frames), then publishes what the sensor now holds as JSON on
@@ -56,6 +60,7 @@ def load_config():
     ha_name = c.get("ha_name", fallback=panel.replace("-", " ").title() or "Kiosk")
     discovery_prefix = c.get("discovery_prefix", fallback="homeassistant")
     tuning = c.getboolean("tuning", fallback=True)
+    ha_discovery = c.getboolean("ha_discovery", fallback=False)
 
     mqtt_host = m.get("host", "127.0.0.1")
     mqtt_port = m.getint("port", fallback=1883)
@@ -98,6 +103,7 @@ def load_config():
         "ha_name": ha_name,
         "discovery_prefix": discovery_prefix,
         "tuning": tuning,
+        "ha_discovery": ha_discovery,
         "mqtt_host": mqtt_host,
         "mqtt_port": mqtt_port,
         "mqtt_user": mqtt_user,
@@ -240,7 +246,8 @@ def open_mqtt(cfg, commands):
 
 
 def publish_discovery(client, cfg):
-    """One Home Assistant number per setting, on a "<Room> Kiosk Presence" device."""
+    """One Home Assistant number per setting, on a "<Room> Kiosk Presence" device
+    (ha_discovery on), or the empty retained configs that remove them (off)."""
     base = cfg["base_topic"]
     node = base.replace("/", "_").replace("-", "_") + "_c4001"
     device = {"identifiers": [node], "name": f"{cfg['ha_name']} Kiosk Presence",
@@ -257,7 +264,8 @@ def publish_discovery(client, cfg):
         }
         if unit:
             payload["unit_of_measurement"] = unit
-        client.publish(f"{cfg['discovery_prefix']}/number/{node}/{key}/config", json.dumps(payload), qos=1, retain=True)
+        topic = f"{cfg['discovery_prefix']}/number/{node}/{key}/config"
+        client.publish(topic, json.dumps(payload) if cfg["ha_discovery"] else "", qos=1, retain=True)
 
 
 def main():

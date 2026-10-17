@@ -52,3 +52,20 @@ Availability for every entity follows `<base_topic>/availability` (`online`/`off
 It is the same entity either way, so automations don't change when a kiosk switches.
 
 Not every kiosk has every sensor wired up (lux, presence) — those entities will simply stay `unknown` if the corresponding hardware/service isn't enabled on that kiosk.
+
+## Presence sensor settings (0.4.0, 2026-10-17)
+
+Each kiosk's device also has the C4001 mmWave presence sensor's settings as
+number entities (entity category: configuration): Presence detection distance
+(1-12 m), Presence trigger distance (0.6-12 m), Presence trigger sensitivity and
+Presence hold sensitivity (0-9), Presence confirmation delay (0-5 s) and Presence
+clear after (1-600 s). They read `<base>/presence/tuning/state` (JSON) and
+`<base>/presence/tuning/available`, both published by the kiosk's
+`c4001_presence_mqtt.py`, and send changes to `<base>/presence/tuning/<key>/set`;
+the script stops the sensor, writes the setting to its flash, reads everything
+back and starts it again (about three seconds). A kiosk without the script (or
+with `[c4001] tuning = false`) shows them as unavailable.
+
+Note: Home Assistant 2026.10 names new entities after the device's area as well
+("number.kitchen_kitchen_kiosk_presence_..."); the Scarth kiosks' were renamed
+to `number.<room>_kiosk_presence_*` to match their other entities.

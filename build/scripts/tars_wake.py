@@ -23,6 +23,7 @@ HOME = os.path.expanduser('~')
 INI = os.environ.get('KIOSK_CONFIG', os.path.join(HOME, 'kiosk_config.ini'))
 FRAME = 1280                       # 80 ms at 16 kHz, what openWakeWord takes
 NOISE_WINDOW = 62                  # ~5 s of frames for the room's noise floor
+BEAT_S = 60                        # heartbeat to the add-on
 
 
 def log(*a):
@@ -66,6 +67,10 @@ def main():
     levels = deque(maxlen=NOISE_WINDOW)
     last = 0.0
     session = requests.Session()
+    # A heartbeat to the add-on every minute from inside the audio loop (TARS's health checks, add-on 0.1.192): no
+    # beat means the service, the microphone stream or the kiosk is down; a level near zero means a dead microphone.
+    alive_url = s['wake_url'].replace('/api/tars/wake', '/api/tars/alive')
+    last_beat = 0.0
     while True:
         rec = subprocess.Popen(['arecord', '-q', '-D', s['pcm'], '-f', 'S16_LE', '-r', '16000', '-c', '1', '-t', 'raw'],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -78,6 +83,13 @@ def main():
                 levels.append(math.sqrt(float(np.mean((frame.astype(np.float32) / 32768.0) ** 2))))
                 scores = model.predict(frame)
                 now = time.time()
+                if now - last_beat >= BEAT_S:
+                    last_beat = now
+                    try:
+                        session.post(alive_url, json={'kiosk': s['kiosk'], 'level': round(float(np.median(levels)) if levels else 0.0, 5),
+                                                      'models': sorted(present)}, timeout=3)
+                    except requests.RequestException:
+                        pass
                 if now - last < s['cooldown']:
                     continue
                 hits = [(scores.get(n, 0.0), n) for n in present if scores.get(n, 0.0) >= s['thresholds'][n]]

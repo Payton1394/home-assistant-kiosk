@@ -14,7 +14,7 @@ Optional [tars_wake]: pcm, hey_tars (threshold), tars (threshold), cooldown (s),
 Models: ~/tars-wake/models/{hey_tars,tars}.onnx plus openWakeWord's melspectrogram.onnx and embedding_model.onnx.
 Runs from ~/tars-wake/.venv (onnxruntime, numpy, scipy, scikit-learn, requests, openwakeword 0.6.0 --no-deps).
 """
-import configparser, json, math, os, subprocess, sys, time, urllib.parse, wave
+import configparser, io, json, math, os, subprocess, sys, threading, time, urllib.parse, wave
 from collections import deque
 
 import numpy as np
@@ -29,6 +29,13 @@ BEAT_S = 60                        # heartbeat to the add-on
 CLIP_FRAMES = 32                   # 2.56 s kept per wake
 CLIP_KEEP = 400
 CLIPS = os.path.join(HOME, 'tars-wake', 'clips')
+# Say it in one breath (Payton 2026-11-02: "say hey tars and then whatever I want without waiting"): after a wake this
+# listener keeps recording the sentence itself (no gap while the page opens its microphone) and posts it to the add-on
+# (/api/tars/wake-turn); the add-on answers only the room that won the wake.
+PRE_FRAMES = 6                     # 0.48 s before the wake fired, in case the sentence ran straight on
+START_WAIT = 50                    # 4 s for speech to start (someone who still waits for the tone)
+END_QUIET = 11                     # 0.88 s of quiet ends the sentence
+MAX_FRAMES = 150                   # 12 s at most
 
 
 def log(*a):
@@ -50,6 +57,26 @@ def keep_clip(frames, word, score):
         log('could not keep the clip:', e)
 
 
+def wav_bytes(frames):
+    b = io.BytesIO()
+    with wave.open(b, 'wb') as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes(b''.join(frames))
+    return b.getvalue()
+
+
+def post_turn(session, url, kiosk, frames):
+    """The sentence to the add-on, off the audio loop (the answer takes seconds)."""
+    def go():
+        try:
+            r = session.post(url, data=wav_bytes(frames) if frames else b'', timeout=120,
+                             headers={'content-type': 'audio/wav', 'x-tars-kiosk': kiosk})
+            log(f'sentence ({len(frames) * 0.08:.1f} s) -> {r.status_code} {r.text[:60]}')
+        except requests.RequestException as e:
+            log(f'sentence: add-on unreachable ({e.__class__.__name__})')
+    threading.Thread(target=go, daemon=True).start()
+
+
 def settings():
     c = configparser.ConfigParser()
     c.read(INI)
@@ -63,6 +90,7 @@ def settings():
     return {
         'kiosk': kiosk,
         'wake_url': f'{u.scheme}://{u.netloc}/api/tars/wake',
+        'turn_url': f'{u.scheme}://{u.netloc}/api/tars/wake-turn',
         'pcm': w.get('pcm', 'tars_mic'),
         'thresholds': {'hey_tars': float(w.get('hey_tars', 0.5)), 'tars': float(w.get('tars', 0.6))},
         'cooldown': float(w.get('cooldown', 3)),
@@ -125,10 +153,37 @@ def main():
                 model.reset()
                 try:
                     r = session.post(s['wake_url'], json={'kiosk': s['kiosk'], 'word': word, 'score': round(float(score), 3),
-                                                          'noise': round(noise, 4)}, timeout=3)
+                                                          'noise': round(noise, 4), 'streams': True}, timeout=3)
                     log(f'{word} {score:.2f} (noise {noise:.3f}) -> {r.status_code} {r.text[:80]}')
-                except requests.RequestException as e:
+                    heard = r.ok and r.json().get('result') == 'heard'
+                except (requests.RequestException, ValueError) as e:
                     log(f'{word} {score:.2f}: add-on unreachable ({e.__class__.__name__})')
+                    heard = False
+                if not heard:
+                    continue
+                # Keep listening: the sentence from just before the wake to the first pause after speech.
+                pre = list(recent)[-PRE_FRAMES:]
+                said, started, quiet, n = [], False, 0, 0
+                gate = max(noise * 3.0, 0.004)
+                while n < MAX_FRAMES:
+                    b2 = rec.stdout.read(FRAME * 2)
+                    if len(b2) < FRAME * 2:
+                        break
+                    n += 1
+                    said.append(b2)
+                    lv = math.sqrt(float(np.mean((np.frombuffer(b2, dtype=np.int16).astype(np.float32) / 32768.0) ** 2)))
+                    if lv > gate:
+                        started, quiet = True, 0
+                    elif started:
+                        quiet += 1
+                        if quiet >= END_QUIET:
+                            break
+                    elif n >= START_WAIT:
+                        break
+                post_turn(session, s['turn_url'], s['kiosk'], pre + said if started else [])
+                model.reset()
+                recent.clear()
+                last = time.time()
         finally:
             rec.kill()
         err = (rec.stderr.read() or b'').decode(errors='replace').strip()

@@ -5,14 +5,16 @@ Listens all the time on the shared microphone (ALSA pcm `tars_mic`, a dsnoop of 
 channel, so the panel's intercom and doorbell Talk can open the mic too) with openWakeWord's two custom models, and
 when one fires tells the Scarth Wall Panel add-on: POST <panel>/api/tars/wake {kiosk, word, score, noise}. The add-on
 picks the room that heard it best and that kiosk's page listens and answers (scarth-panel src/lib/tarsKiosk.js).
-Audio never leaves the kiosk until the page records the question itself.
+Audio never leaves the kiosk until the page records the question itself. The 2.56 s that set off each wake are kept ON
+THE KIOSK (~/tars-wake/clips, newest 400) for retraining the models on what falsely wakes them (Payton 2026-11-01: the
+Family Room TV woke TARS 17 times in a day); Claude fetches them over SSH.
 
 Kiosk id and panel address come from [kiosk] url in kiosk_config.ini (https://host:8443/<room>?kiosk=<id>).
 Optional [tars_wake]: pcm, hey_tars (threshold), tars (threshold), cooldown (s), models (dir).
 Models: ~/tars-wake/models/{hey_tars,tars}.onnx plus openWakeWord's melspectrogram.onnx and embedding_model.onnx.
 Runs from ~/tars-wake/.venv (onnxruntime, numpy, scipy, scikit-learn, requests, openwakeword 0.6.0 --no-deps).
 """
-import configparser, json, math, os, subprocess, sys, time, urllib.parse
+import configparser, json, math, os, subprocess, sys, time, urllib.parse, wave
 from collections import deque
 
 import numpy as np
@@ -24,10 +26,28 @@ INI = os.environ.get('KIOSK_CONFIG', os.path.join(HOME, 'kiosk_config.ini'))
 FRAME = 1280                       # 80 ms at 16 kHz, what openWakeWord takes
 NOISE_WINDOW = 62                  # ~5 s of frames for the room's noise floor
 BEAT_S = 60                        # heartbeat to the add-on
+CLIP_FRAMES = 32                   # 2.56 s kept per wake
+CLIP_KEEP = 400
+CLIPS = os.path.join(HOME, 'tars-wake', 'clips')
 
 
 def log(*a):
     print(time.strftime('%H:%M:%S'), *a, flush=True)
+
+
+def keep_clip(frames, word, score):
+    """The audio that set off a wake, kept on the kiosk for retraining (the newest CLIP_KEEP)."""
+    try:
+        os.makedirs(CLIPS, exist_ok=True)
+        name = os.path.join(CLIPS, f"{time.strftime('%Y%m%d-%H%M%S')}-{word}-{score:.2f}.wav")
+        with wave.open(name, 'wb') as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+            w.writeframes(b''.join(frames))
+        old = sorted(os.listdir(CLIPS))
+        for f in old[:-CLIP_KEEP]:
+            os.remove(os.path.join(CLIPS, f))
+    except OSError as e:
+        log('could not keep the clip:', e)
 
 
 def settings():
@@ -65,6 +85,7 @@ def main():
     log(f"kiosk {s['kiosk']}: listening for {', '.join(present)} on {s['pcm']} -> {s['wake_url']}",
         {n: s['thresholds'][n] for n in present})
     levels = deque(maxlen=NOISE_WINDOW)
+    recent = deque(maxlen=CLIP_FRAMES)
     last = 0.0
     session = requests.Session()
     # A heartbeat to the add-on every minute from inside the audio loop (TARS's health checks, add-on 0.1.192): no
@@ -79,6 +100,7 @@ def main():
                 buf = rec.stdout.read(FRAME * 2)
                 if len(buf) < FRAME * 2:
                     break
+                recent.append(buf)
                 frame = np.frombuffer(buf, dtype=np.int16)
                 levels.append(math.sqrt(float(np.mean((frame.astype(np.float32) / 32768.0) ** 2))))
                 scores = model.predict(frame)
@@ -97,6 +119,7 @@ def main():
                     continue
                 score, word = max(hits)
                 last = now
+                keep_clip(list(recent), word, float(score))
                 # The room's background: the quieter part of the last few seconds (speech excluded).
                 noise = float(np.percentile(levels, 20)) if levels else 0.0
                 model.reset()

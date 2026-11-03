@@ -9,7 +9,12 @@ Audio never leaves the kiosk until the page records the question itself. The 2.5
 THE KIOSK (~/tars-wake/clips, newest 400) for retraining the models on what falsely wakes them (Payton 2026-11-01: the
 Family Room TV woke TARS 17 times in a day); Claude fetches them over SSH.
 
+BACKUP MODE (Payton 2026-11-03): when the add-on can't be reached at all (the Home Assistant Pi is down), the sentence after
+a wake goes straight to the TARS server on TrueNAS (POST <backup>/v1/backup/turn?audio=wav with this kiosk's backup
+code from ~/.config/tars-backup-token) and its answer, which starts "Backup mode.", is played here with aplay.
+
 Kiosk id and panel address come from [kiosk] url in kiosk_config.ini (https://host:8443/<room>?kiosk=<id>).
+Optional [tars_wake] backup = the TARS server (default http://192.168.1.2:8770).
 Optional [tars_wake]: pcm, hey_tars (threshold), tars (threshold), cooldown (s), models (dir).
 Models: ~/tars-wake/models/{hey_tars,tars}.onnx plus openWakeWord's melspectrogram.onnx and embedding_model.onnx.
 Runs from ~/tars-wake/.venv (onnxruntime, numpy, scipy, scikit-learn, requests, openwakeword 0.6.0 --no-deps).
@@ -77,6 +82,30 @@ def post_turn(session, url, kiosk, frames):
     threading.Thread(target=go, daemon=True).start()
 
 
+def post_backup_turn(url, token, frames):
+    """Backup mode: the sentence to the TARS server itself, and its spoken answer played on this kiosk."""
+    def go():
+        try:
+            r = requests.post(url, data=wav_bytes(frames), timeout=120,
+                              headers={'content-type': 'audio/wav', 'authorization': f'Bearer {token}'})
+            d = r.json()
+            log(f"backup turn ({len(frames) * 0.08:.1f} s) -> {r.status_code} {d.get('mode')}: {d.get('reply', d)!s:.80}")
+            if d.get('audio'):
+                import base64
+                subprocess.run(['aplay', '-q'], input=base64.b64decode(d['audio']), timeout=120)
+        except (requests.RequestException, ValueError, subprocess.SubprocessError) as e:
+            log(f'backup turn failed ({e.__class__.__name__}: {str(e)[:80]})')
+    threading.Thread(target=go, daemon=True).start()
+
+
+def backup_token():
+    p = os.path.join(HOME, '.config', 'tars-backup-token')
+    try:
+        return open(p).read().strip()
+    except OSError:
+        return ''
+
+
 def settings():
     c = configparser.ConfigParser()
     c.read(INI)
@@ -95,6 +124,7 @@ def settings():
         'thresholds': {'hey_tars': float(w.get('hey_tars', 0.5)), 'tars': float(w.get('tars', 0.6))},
         'cooldown': float(w.get('cooldown', 3)),
         'models': models,
+        'backup_url': w.get('backup', 'http://192.168.1.2:8770').rstrip('/') + '/v1/backup/turn?audio=wav',
     }
 
 
@@ -156,9 +186,12 @@ def main():
                                                           'noise': round(noise, 4), 'streams': True}, timeout=3)
                     log(f'{word} {score:.2f} (noise {noise:.3f}) -> {r.status_code} {r.text[:80]}')
                     heard = r.ok and r.json().get('result') == 'heard'
+                    backup = False
                 except (requests.RequestException, ValueError) as e:
-                    log(f'{word} {score:.2f}: add-on unreachable ({e.__class__.__name__})')
-                    heard = False
+                    # The add-on is gone (the Home Assistant Pi is down): TARS on TrueNAS answers here directly.
+                    backup = isinstance(e, requests.RequestException) and bool(backup_token())
+                    log(f'{word} {score:.2f}: add-on unreachable ({e.__class__.__name__})' + ('; backup mode' if backup else ''))
+                    heard = backup
                 if not heard:
                     continue
                 # Keep listening: the sentence from just before the wake to the first pause after speech.
@@ -180,7 +213,11 @@ def main():
                             break
                     elif n >= START_WAIT:
                         break
-                post_turn(session, s['turn_url'], s['kiosk'], pre + said if started else [])
+                if backup:
+                    if started:
+                        post_backup_turn(s['backup_url'], backup_token(), pre + said)
+                else:
+                    post_turn(session, s['turn_url'], s['kiosk'], pre + said if started else [])
                 model.reset()
                 recent.clear()
                 last = time.time()

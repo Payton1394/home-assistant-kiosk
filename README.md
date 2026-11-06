@@ -17,7 +17,7 @@ A deployable Raspberry Pi image for a touchscreen Home Assistant dashboard kiosk
 - **Reconfigure without reflashing**: run `kiosk-reconfigure` over SSH/local terminal, or press "Rearm Setup Wizard" in the HA integration, to drop back into the setup wizard (pre-filled with current settings) and change anything
 - Auto-negotiates your display's native resolution (no hardcoded video mode) and auto-detects the touchscreen device, so rotation and touch alignment work correctly regardless of which panel you use
 - Wi-Fi watchdog (auto-recovers a dropped connection)
-- Optional **wake-word listener** (openWakeWord on a ReSpeaker microphone) for a voice assistant dashboard, see [Voice wake word](#voice-wake-word-optional)
+- Works with **ReSpeaker USB microphone and speaker boards**, see [Microphone and speaker](#microphone-and-speaker-optional). Setup is manual; the image doesn't configure them
 - Works with **Raspberry Pi cameras** for streaming to an NVR such as Frigate, see [Cameras](#cameras-optional). Setup is manual; the image doesn't configure a camera
 - Auto-expands to fill whatever size SD card it's flashed to (the image itself ships shrunk down for a fast download)
 
@@ -51,7 +51,7 @@ If you're on a Pi 4 and stick to the display + lux sensor (skip C4001/RCWL, or w
   - **[Waveshare 15.6" HDMI LCD (H)](https://www.waveshare.com/15.6inch-hdmi-lcd.htm)** — 15.6", 1920×1080, HDMI + USB touch, wants its own 12V power adapter.
   - Waveshare also makes 10.1" and other in-between sizes if you want something different — any of them should work the same way (auto-negotiated resolution, no per-model config needed) as long as it's HDMI + USB (or DSI) capacitive touch.
 - **Optional sensors** — see below.
-- **Optional microphone and speaker**: a Seeed ReSpeaker Lite (USB) or ReSpeaker Flex XVF3800 (USB), for the [wake word](#voice-wake-word-optional).
+- **Optional microphone and speaker**: a Seeed ReSpeaker Lite or ReSpeaker Flex XVF3800, both USB. See [Microphone and speaker](#microphone-and-speaker-optional).
 - **Optional camera** — see [Cameras](#cameras-optional).
 - **Optional wall frame**: 3D-printable frames for the 8" and 15.6" displays are in [hardware/enclosure/](hardware/enclosure/).
 
@@ -124,14 +124,13 @@ Then open `http://<kiosk>:8889/cam0` in a browser, or `rtsp://<kiosk>:8554/cam0`
 
 All of these delivered their full frame rate with no throttling. They were short bench runs, and a closed wall mount will run hotter. Expect more GPU use from an animated dashboard.
 
-## Voice wake word (optional)
+## Microphone and speaker (optional)
 
-`tars-wake.service` runs [`tars_wake.py`](build/scripts/tars_wake.py), which listens on the microphone with [openWakeWord](https://github.com/dscripka/openWakeWord) and tells the dashboard when it hears the wake word. It's written for the author's own dashboard, so **it isn't a complete assistant and isn't set up by the image**. To use it you need:
+Two USB boards from Seeed are in use on these kiosks: the **ReSpeaker Lite** on the 15.6" build, and the **ReSpeaker Flex XVF3800** on the 8" build. Both do their own voice processing and connect over USB. The image doesn't configure them, so add this by hand after first boot.
 
-- your own wake-word models in `~/tars-wake/models/` (`.onnx`, none are included here), plus openWakeWord's `melspectrogram.onnx` and `embedding_model.onnx`
-- a Python environment in `~/tars-wake/.venv` with onnxruntime, numpy, scipy, scikit-learn, requests and openwakeword 0.6.0 (`--no-deps`)
-- an ALSA device named `tars_mic` in `~/.asoundrc`, shared with `dsnoop` so the dashboard can open the microphone too (below, for a ReSpeaker Lite)
-- a dashboard that answers `POST <panel>/api/tars/wake`, or your own changes to the script
+**Use a USB data cable.** A charge-only cable shows no device at all. Check with `lsusb` and `arecord -l`.
+
+**Share the device with `~/.asoundrc`.** ALSA lets one program open a device at a time unless you add `dsnoop` (capture) and `dmix` (playback). For a ReSpeaker Lite:
 
 ```
 pcm.respeaker_snoop {
@@ -140,14 +139,32 @@ pcm.respeaker_snoop {
     ipc_perm 0666
     slave { pcm "hw:CARD=Lite,DEV=0"; channels 2; rate 16000; format S16_LE; period_size 256; buffer_size 4096 }
 }
-pcm.tars_mic {
-    type plug
-    slave { pcm "respeaker_snoop"; channels 2 }
-    ttable.0.0 1
+pcm.respeaker_dmix {
+    type dmix
+    ipc_key 5150
+    ipc_perm 0666
+    slave { pcm "hw:CARD=Lite,DEV=0"; rate 16000; channels 2; format S16_LE; period_size 256; buffer_size 2048 }
+}
+pcm.respeaker     { type plug; slave.pcm "respeaker_snoop" }
+pcm.respeaker_out { type plug; slave.pcm "respeaker_dmix" }
+pcm.!default {
+    type asym
+    playback.pcm "respeaker_out"
+    capture.pcm "respeaker"
 }
 ```
 
-**Privacy:** the listener keeps the 2.56 seconds of audio that triggered each wake on the kiosk, in `~/tars-wake/clips` (newest 400), for retraining. It's not uploaded by the script, but anyone with access to the kiosk can read those clips.
+**Restart the browser after changing this file.** A running Chromium keeps the audio settings it loaded at start.
+
+| | ReSpeaker Lite | ReSpeaker Flex XVF3800 |
+|---|---|---|
+| USB ID | `2886:0019` | `2886:0022` |
+| ALSA card name | `Lite` | `L16K6Ch` |
+| Capture | 2 channels, 16 kHz | 6 channels, 16 kHz: channel 0 is processed voice, 1 is the speech-recognition mix, 2-5 are the raw mics |
+| Playback | 2 channels, 16 kHz | 2 channels, 16 kHz, to its 10 W amp or AUX |
+| Volume | No ALSA volume control, so set the level in software | ALSA `PCM` control |
+
+**Flex mic channels all read zero?** Check the ribbon cable to the mic board. On one unit, it had to be turned around, with the cable's contacts facing the connector's contacts at each end.
 
 ## Step-by-step setup
 
@@ -214,7 +231,6 @@ The wizard writes everything to `~/kiosk_config.ini` on the kiosk (`build/kiosk_
 | `[c4001]` | `uart_device`, `baud`, `hold_seconds` | mmWave sensor UART settings and presence hold time. |
 | `[display]` | `rotation` | `normal` / `right` / `left` / `inverted`. |
 | `[display]` | `touch_device` | Touch input override; leave blank for auto-detection. |
-| `[tars_wake]` | `pcm`, `hey_tars`, `tars`, `cooldown`, `models`, `backup` | Optional wake-word settings: microphone device, detection thresholds (0.5 for `hey_tars`, 0.6 for `tars` by default), seconds between wakes, model folder, and a backup server address. Set `backup` to your own server. |
 
 MQTT topics for live control (dashboard URL, screensaver URL/timeout, refresh, reboot, rearm-wizard, identity/availability) are fixed rather than ini-configurable — see the comment block in `build/kiosk_config.ini.example` or the [integration README](custom_components/ha_kiosk_panel/README.md)'s entity table for the exact topic names.
 
@@ -237,7 +253,6 @@ Not a Home Assistant install — this is a kiosk *client* (Chromium fullscreen) 
 | `kiosk-lux-mqtt.service` | If lux sensor enabled | Ambient light level from a VEML7700 or BH1750 sensor over I2C (whichever is fitted). |
 | `c4001_presence.service` | If C4001 sensor enabled | Presence (and, depending on sensor mode, distance) from a DFRobot C4001 mmWave sensor over UART. Manual tuning tools live in [build/scripts/c4001-tools/](build/scripts/c4001-tools/). |
 | `rcwl-presence.service` | If RCWL sensor enabled | Presence from an RCWL-0516 microwave radar sensor over GPIO. |
-| `tars-wake.service` | Manual setup only | Wake-word listener. See [Voice wake word](#voice-wake-word-optional). |
 
 The "if MQTT/sensor configured" ones are installed disabled by default — the setup wizard enables exactly the ones a given kiosk needs based on what you fill in.
 
@@ -276,7 +291,7 @@ README.md                   - this file
 - No SSH keys, Wi-Fi passwords, or MQTT credentials are baked into the image — everything is entered fresh through the wizard on first boot.
 - The wizard's local HTTP server binds to `127.0.0.1` only; it's reachable exclusively from the kiosk's own Chromium on the kiosk's own screen, never over the network.
 - Chromium starts with `--use-fake-ui-for-media-stream` and `--autoplay-policy=no-user-gesture-required`, so the dashboard can use the microphone (intercom, voice) and play sounds (doorbell chimes) without anyone tapping the screen. The kiosk only opens the dashboard URL you configure, but any page it shows gets the same rights: point it only at your own Home Assistant.
-- Camera streams and wake-word clips are private data, and neither is on by default. See [Cameras](#cameras-optional) and [Voice wake word](#voice-wake-word-optional).
+- Camera streams are private data, and they aren't on by default. See [Cameras](#cameras-optional).
 - SSH access is opt-in: paste a public key into the wizard's "Remote access" section, or manage `~/.ssh/authorized_keys` yourself.
 - The `kiosk` user has a narrowly-scoped `sudoers.d` rule (Wi-Fi, hostname, specific systemd units, reboot, changing the terminal password) rather than blanket sudo — see `build/sudoers.d/kiosk-wizard` for the exact rule and rationale.
 
@@ -290,8 +305,6 @@ README.md                   - this file
   [DriverQuirks]
   PowerSaveDisable=brcmfmac
   ```
-- **Wake word detection on a TV.** Audio from a TV can score as high as a real wake word, so a nearby TV can set it off.
-- **Wake word stops detecting (cause not found).** One kiosk stopped detecting for about 20 hours, including across a reboot, while the service and microphone looked healthy. Restarting `tars-wake` and the browser cleared it.
 
 ## Future ideas
 

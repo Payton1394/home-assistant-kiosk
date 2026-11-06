@@ -53,6 +53,7 @@ If you're on a Pi 4 and stick to the display + lux sensor (skip C4001/RCWL, or w
 - **Optional sensors** — see below.
 - **Optional microphone and speaker**: a Seeed ReSpeaker Lite (USB) or ReSpeaker Flex XVF3800 (USB), for the [wake word](#voice-wake-word-optional).
 - **Optional camera** — see [Cameras](#cameras-optional).
+- **Optional wall frame**: 3D-printable frames for the 8" and 15.6" displays are in [hardware/enclosure/](hardware/enclosure/).
 
 ### Optional sensors
 
@@ -264,6 +265,7 @@ custom_components/
   ha_kiosk_panel/           - companion HACS integration (see above)
 docs/wizard/                - the web setup wizard (GitHub Pages), makes kiosk-setup.json in the browser
 docs/images/                - screenshots and logo used in this README
+hardware/enclosure/         - 3D-printable wall frames and clamps (STL)
 HARDWARE.md                 - optional sensor wiring/pinouts (lux, C4001, RCWL-0516)
 README.md                   - this file
 ```

@@ -4,18 +4,26 @@ All three sensors are optional — the kiosk works fine with none of them. Each 
 
 Pin numbers below are **physical header pin numbers** (1–40), with the BCM GPIO number in parentheses, matching the standard 40-pin header.
 
-## Ambient light sensor — BH1750 (GY-302 breakout)
+## Ambient light sensor — VEML7700 (recommended) or BH1750
 
-I2C, bus 1, address `0x23`. Used for lux-based brightness automations.
+Either sensor works; `kiosk_lux_mqtt.py` uses whichever answers on I2C bus 1. Used for lux-based brightness automations.
+
+- **VEML7700** (Adafruit #4162), address `0x10`. Reads down to about 0.004 lx, so it can tell a dim room from a dark one, and
+  auto-ranges up to bright daylight. Recommended.
+- **BH1750** (GY-302 breakout), address `0x23`. Bottoms out around 1 lx, so in a dim room it reads 0.
+
+Both are wired the same way:
 
 | Sensor pin | Connect to | Pi pin |
 |---|---|---|
-| VCC | 3.3V | Pin 1 |
+| VIN / VCC | 3.3V | Pin 1 |
 | GND | Ground | Pin 6 (or any GND) |
 | SDA | I2C1 SDA (GPIO2) | Pin 3 |
 | SCL | I2C1 SCL (GPIO3) | Pin 5 |
 
-`dtparam=i2c_arm=on` is already set in `config.txt`. After wiring, you can confirm the Pi sees it with `i2cdetect -y 1` — it should show a device at address `0x23`.
+`dtparam=i2c_arm=on` is already set in `config.txt`. After wiring, confirm the Pi sees it with `i2cdetect -y 1`: a device at
+`0x10` (VEML7700) or `0x23` (BH1750). The light level is published to `<base_topic>/lux/state` when it changes by 3 % or
+0.05 lx, and at least once a minute; `<base_topic>/lux/attributes` says which sensor it is.
 
 ## Presence — C4001 mmWave (UART, speed/distance-capable)
 

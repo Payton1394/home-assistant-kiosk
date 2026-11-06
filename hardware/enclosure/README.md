@@ -4,7 +4,7 @@
 
 | Display | Frame | Overall size (mm) |
 |---|---|---|
-| [Waveshare 15.6" HDMI LCD (H)](https://www.waveshare.com/15.6inch-hdmi-lcd.htm) | `15in_kiosk_frame_v30.stl` | 399.1 x 290.6 x 19.0 |
+| Waveshare 15.6HP-CAPQLED | `15in_kiosk_frame_v30.stl` | 399.1 x 290.6 x 19.0 |
 | [Waveshare 8DP-CAPLCD](https://www.waveshare.com/8dp-caplcd.htm) | `8in_kiosk_frame_v12.stl` | 219.2 x 170.7 x 12.0 |
 
 **Printing:** printed in JLC3DP 9600 resin. Clamps were left unpainted.
@@ -15,7 +15,7 @@
 
 ## Clamps
 
-Clamps hold the boards inside the frame, as shown in [clamp-guide.png](clamp-guide.png), viewed from the wall side. The guide labels the 15.6" frame as v29. v30 is the same arrangement, with threaded inserts added for the USB board.
+Clamps hold the boards inside the frame, as shown in [clamp-guide.png](clamp-guide.png), viewed from the wall side. The guide was drawn for 15.6" frame v29, one version before the frame included here, so check it against v30 before assembly.
 
 | Frame | Print | Holds | Screws |
 |---|---|---|---|
